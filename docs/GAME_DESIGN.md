@@ -40,8 +40,8 @@ The map is grounded in real CalMac geography — real islands, real routes, real
 
 Real-time, heavily compressed — roughly **10–15 real minutes per game day**, giving something like a 60–90x compression ratio. A long crossing (Oban–Barra, ~5 real hours) takes roughly 5 real minutes in-game; a short hop takes roughly 1 real minute.
 
-- **Phase 1**: simulation runs while you're actively playing.
-- **Phase 2 (stretch)**: offline/idle progression — the game keeps simulating (in compressed/catch-up form) while you're not playing. Mechanism TBD.
+- **Live**: simulation runs while you're actively playing.
+- **Offline/idle (stretch)**: the game keeps simulating (in compressed/catch-up form) while you're not playing. Mechanism TBD. (Note: "stretch" here is a scope call, not a build-order phase — see `docs/ROADMAP.md` for actual sequencing, which owns "Phase N" numbering.)
 
 ## Views & visual language
 

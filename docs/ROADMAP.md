@@ -191,7 +191,7 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 
 **Testing**: hazard-zone intersection and route-risk calculation as pure, tested `sim/` functions.
 
-**Model**: Sonnet for implementation; likely worth an Opus pass (or just Adam's own judgement, since this is content as much as code) on the initial hazard-zone authoring, since getting the geography *feeling* right is closer to the ship-tuning work than to routine coding.
+**Model**: this isn't really a model-selection question at all — getting the hazard-zone geography to feel right is a content-authoring judgement call, the same category as ship-photo tuning, and per the `tuning-workflow` memory that's Adam's call, not something a bigger model does better. Sonnet is fine for the implementation (hazard-zone intersection code, map data structures) once the geography itself is decided.
 
 **Assets/questions needed**: this is the content-heavy phase flagged in `GAME_DESIGN.md`'s Risks section. Needed:
 - Real relative positions for the islands/ports in scope (a rough real map or coastline reference is enough — doesn't need to be surveyed-accurate, just recognisably right).
@@ -232,4 +232,4 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 
 ## Phase 6 (stretch) — Offline progression & platform ports
 
-Explicitly not scoped in detail yet — revisit `docs/GAME_DESIGN.md`'s Phase 2/stretch notes when the earlier phases are solid. Candidate contents: idle/offline catch-up simulation (the determinism work from Phase 0 pays off here), the iPad/Capacitor wrap, and — only if it ever becomes real rather than hypothetical — beginning a Unity port using `sim/` as the specification per the Portability strategy above.
+Explicitly not scoped in detail yet — revisit `docs/GAME_DESIGN.md`'s "Offline/idle (stretch)" notes under Time & simulation when the earlier phases are solid. Candidate contents: idle/offline catch-up simulation (the determinism work from Phase 0 pays off here), the iPad/Capacitor wrap, and — only if it ever becomes real rather than hypothetical — beginning a Unity port using `sim/` as the specification per the Portability strategy above.
