@@ -34,6 +34,9 @@ Two mostly-separate halves live under one tab shell (`src/App.tsx`, tabs: Shipya
 
 - Game-rule code belongs in `src/sim/` (once it exists) as pure TypeScript with no React/Phaser/DOM imports — data in, data out, fully unit-testable.
 - No `Math.random()` or `Date.now()` inside `sim/` — take a seeded RNG and an explicit timestamp as arguments instead. This is a hard rule for determinism (debugging, and later offline/idle simulation), not a style preference.
+- Sim state advances in fixed ticks via an accumulator, never by Phaser's frame delta — same determinism rule, time-shaped. Phaser may interpolate visually between ticks; game truth changes only in whole `sim/` steps.
 - All input (keyboard, mouse, future touch) goes through a named intent layer rather than gameplay code binding directly to DOM events — this is what keeps a future iPad port realistic.
+
+Project skills exist for the two recurring workflows: `ship-preset-import` (Adam pastes tuned `ShipDesign` JSON → validate → hardcode into presets) and `phase-kickoff` (start a roadmap phase from consistent grounding). Use them when those situations arise.
 
 `vite.config.ts` sets `base: '/FleetTycoon/'` to match the GitHub repo name — update it if the repo is ever renamed.

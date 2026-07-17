@@ -29,7 +29,7 @@ Not aiming for a GDP-accurate CalMac financial model — real subsidised ferry r
 
 ## Geography & hazard
 
-The map is grounded in real CalMac geography — real islands, real routes, real relative distances — but hazard data is **authored, not live**. No external weather/tidal API integration in phase 1; that's a possible future stretch, not a dependency to build around now.
+The map is grounded in real CalMac geography — real islands, real routes, real relative distances — but hazard data is **authored, not live**. No external weather/tidal API integration for now; that's a possible future stretch, not a dependency to build around.
 
 - Hand-authored **hazard zones** overlaid on the map: shallow banks, exposed open-water stretches, and specific notoriously dangerous passages (Sound of Harris / Berneray–Leverburgh, the Corryvreckan, etc.).
 - A **daily/session weather forecast** is visible to the player ahead of sailings — risk should be a decision you can see coming, not pure bad luck discovered after the fact.
@@ -102,13 +102,15 @@ This is the mechanic that differentiates Fleet Tycoon from a pure spreadsheet ty
 - **Freight vs. passenger simulation depth**: not yet discussed.
 - **Seasonal demand variation**: not yet discussed.
 - **Day-to-day route operation mechanics**: timetabling, sailing frequency, capacity-to-demand matching — the actual UI/mechanical shape of "running a route properly" hasn't been discussed in detail yet.
-- **Offline/idle progression mechanism** (phase 2): catch-up simulation approach undecided.
+- **Pause & time controls**: a real-time game with 10–15-minute days needs an answer for stepping away — pause, and possibly fast-forward through quiet stretches. Interacts directly with the docking-notice mechanic (what happens if a notice fires while you're not looking — does the game pause, does the AI captain just take it?). Not yet discussed.
+- **Audio**: entirely undiscussed. Flagging because docking feel is half sound (engine note under load, wind, gulls, the ramp clunk) — the roadmap notes a cheap placeholder pass as a Phase 1 stretch, but the actual audio direction is an open design area.
+- **Offline/idle progression mechanism** (stretch): catch-up simulation approach undecided.
 
 ## Risks & things to watch
 
 Flagged during design discussion — not blockers, just things worth being deliberate about:
 
-- **Determinism.** Risk rolls (weather, accidents) should come from a seeded RNG rather than raw randomness, so a day's outcome is reproducible — useful for debugging now, and the only sane foundation for phase 2's offline catch-up simulation later.
+- **Determinism.** Risk rolls (weather, accidents) should come from a seeded RNG rather than raw randomness, so a day's outcome is reproducible — useful for debugging now, and the only sane foundation for the offline/idle catch-up simulation later (see Time & simulation).
 - **Scope discipline.** This is a dream-scope document by design (see "How to read this document" above), spanning contracts/reliability, economy, authored hazard/weather geography, crew progression, ship wear, a real-time docking minigame with dual-input support, four fleet classes, and web-now-tablet-later portability. The phased plan should sequence a genuinely thin, playable vertical slice first — one route, one ship class, the core reliability loop, docking minigame optional/stubbed — before building breadth across every system in parallel.
 - **Map/hazard geography is content-authoring work, not just code** — plotting real island positions, route paths, and hazard zones for the west coast at a usable stylised level is production effort, in the same spirit as the ship-photo tuning workflow. A lightweight "map builder" tool, same philosophy as the ship builder, is likely worth building rather than hand-coding coordinates.
 - **Save-game persistence** (company, fleet, contracts, progress) needs its own store, related to but distinct from the ship-builder's localStorage persistence. The swappable `DesignStore` pattern already built is good precedent to reuse — and keeping storage behind an interface now is exactly what makes a future iPad storage swap easy later.

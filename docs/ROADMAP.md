@@ -31,13 +31,18 @@ src/
 
 **Why `sim/` is sacred**: it's the one layer worth protecting from churn. Keeping it pure and dependency-free is what makes it (a) fast and trivial to unit test, (b) deterministic (see below), and (c) the layer most worth preserving if this is ever reimplemented in another engine — not because the TypeScript runs elsewhere, but because a small set of precisely-specified, well-tested pure functions is a clean spec to reimplement, and its JSON data formats can be reused as-is regardless of what renders them.
 
-**Determinism is a hard rule, not a nice-to-have.** No `Math.random()` or `Date.now()` inside `sim/` — every function that needs randomness or time takes it as an argument (a seeded RNG instance, an explicit timestamp). This costs nothing now and is the only sane foundation for: reproducing a specific day's outcome while debugging, and phase-2 offline/idle catch-up simulation later. A tiny hand-rolled seeded PRNG (e.g. mulberry32, ~5 lines) is enough — no dependency needed.
+**Determinism is a hard rule, not a nice-to-have.** No `Math.random()` or `Date.now()` inside `sim/` — every function that needs randomness or time takes it as an argument (a seeded RNG instance, an explicit timestamp). This costs nothing now and is the only sane foundation for: reproducing a specific day's outcome while debugging, and offline/idle catch-up simulation later. A tiny hand-rolled seeded PRNG (e.g. mulberry32, ~5 lines) is enough — no dependency needed.
+
+**The sim advances by fixed ticks, never by frame delta.** This is the other half of determinism, and it's easy to get wrong by accident: if physics or game state integrates Phaser's per-frame `delta`, outcomes vary with frame rate and no two runs are reproducible. Instead, `sim/` exposes `step(state, inputs, ...)` functions that advance exactly one fixed tick (e.g. 100ms of game time), and the render loop runs an accumulator: pile up real elapsed time, call `step` zero-or-more whole times, render the latest state (the standard "fix your timestep" pattern). Phaser may interpolate *visually* between ticks, but game truth only ever changes in whole ticks. Bonus: offline catch-up in the stretch phase becomes "run N ticks in a tight loop" — the exact same code path, just without rendering between ticks.
+
+**Render-layer subscription granularity.** Phaser reads sim state every frame (it's drawing the world). React must **not** — UI panels subscribe to coarse snapshots (per game-minute, or on named events like `sailing-completed`), never per-tick, or a busy sim will drown React in re-renders. Cheap convention now, painful retrofit later.
 
 ## Testing strategy
 
 - **Vitest** for unit tests — it's Vite-native, needs almost no setup, and runs fast without a browser.
 - **Priority is `sim/`.** Pure functions, cheap to test, and bugs here are gameplay/balance bugs that are much harder to spot than a visual glitch — exactly the "expensive to eyeball" case from the guiding principles.
 - **Golden/snapshot tests for the existing SVG renderers.** `ShipSideView`/`ShipTopView` output for each hero preset, snapshotted. This is retroactive protection for the exact bugs we already hit tuning Isle of Arran and Caledonian Isles — a snapshot diff would have flagged "this refactor reshaped an existing ship" immediately, before it needed a human to notice a phantom deck.
+- **Snapshot updates are deliberate, never reflexive.** A failing ship snapshot means one of two things: a regression (fix the code) or an intentional visual change (eyeball the Fleet gallery first, *then* update snapshots). Never run the snapshot-update flag to make CI green without that check — a blind update converts this whole safety net into noise.
 - **Skip component/E2E tests for now.** React Testing Library or Playwright are worth adding once there's a real loop worth protecting end-to-end (Phase 2+) or a UI flow complex enough to regress silently (e.g. a route-timetable editor). Adding them now would be testing infrastructure with no gameplay behind it yet.
 - **CI**: add a test+typecheck+lint job (either a new `ci.yml` or a pre-deploy step in the existing `deploy.yml`) that blocks on failure. Currently `deploy.yml` builds and ships with no test gate at all.
 
@@ -61,24 +66,24 @@ I'm deliberately **not** recommending an engine-agnostic rendering abstraction n
 
 ### Model selection
 
-Sonnet is the right default for essentially all of this project's work — it's already handled the ship builder, the SVG geometry, the persistence layer, and the git history surgery well over the course of this build. I'd reach for **Opus** (or Sonnet at high reasoning effort) specifically for the handful of moments where getting the *shape* of something wrong is expensive to unwind later:
+**Sonnet is the default** for essentially all of this project's work — it's already handled the ship builder, the SVG geometry, the persistence layer, and the git history surgery well over the course of this build. Reach for a frontier model — **Fable or Opus** (Adam has in practice used Fable for the design-heavy moments on this project: the ship-builder kickoff, the roadmap review) — specifically for the handful of moments where getting the *shape* of something wrong is expensive to unwind later:
 
-- Designing the risk/reliability formulas (Phase 2) and economy formulas (Phase 3) — many later systems build on this shape. Phase 0 itself is pure scaffolding (folder structure, a well-known PRNG algorithm, test/CI config) with no real judgement calls in it, so it doesn't need this despite being where `sim/` first appears.
+- Designing the risk/reliability formulas (Phase 2) and economy formulas (Phase 3) — many later systems build on this shape. Phase 0 itself is pure scaffolding (folder structure, well-known algorithms, test/CI config) with no real judgement calls in it, so it doesn't need this despite being where `sim/` first appears.
 - Tuning the docking minigame's *feel* (Phase 1) — "is this actually fun" is a subtle judgement call worth the extra depth.
 - Any future genuine architecture decision (starting the iPad/Capacitor work for real, or the hypothetical Unity port).
 
-Routine, well-specified work (a new UI panel following an established pattern, a new ship preset once the schema exists, writing tests for already-designed pure functions, content entries once a format is set) doesn't need it.
+Routine, well-specified work (a new UI panel following an established pattern, a new ship preset once the schema exists, writing tests for already-designed pure functions, content entries once a format is set) doesn't need it. Haiku is an option for genuinely bulk mechanical transforms (e.g. reformatting dozens of content entries once a schema is locked), but with this project's cadence the switching overhead rarely pays for itself — don't bother unless a task is both large and mindless.
 
 Honestly, the biggest token-economy lever for a project shaped like this isn't clever per-task model switching — it's **keeping `CLAUDE.md` and these docs lean, and writing them well enough that a new session loads state fast instead of me re-deriving context from scrollback.** That's most of what these two docs are for. Secondary lever: use `Explore`/general-purpose subagents for research-heavy digging once the codebase is bigger (finding every call site of something, auditing a pattern) so the main conversation thread doesn't spend its own context scanning files.
 
 ### Skills
 
-Two are worth building, both narrow and mechanical enough to be safe automations rather than judgement calls:
+Two project skills live in `.claude/skills/` (committed, so they're shared with any session working in this repo). Both are narrow and mechanical enough to be safe automations rather than judgement calls:
 
-- **Ship preset import.** Adam pastes a `ShipDesign` JSON matched in the builder against a reference photo → validate it against the type, hardcode it into `src/ship/presets.ts` in the right place, run the build, confirm the dev preview still renders. This is already a proven recurring workflow (see `tuning-workflow` memory) and is close to fully mechanical.
-- **Phase kickoff.** Load the relevant phase section of this roadmap plus `GAME_DESIGN.md`, restate scope/exit-criteria/testing expectations, and seed `TaskCreate` entries for that phase — so every phase starts from the same grounding instead of being re-derived from memory each time.
+- **`ship-preset-import`** — Adam pastes a `ShipDesign` JSON matched in the builder against a reference photo → validate it against the type, hardcode it into `src/ship/presets.ts`, run the build, confirm rendering. A proven recurring workflow (see `tuning-workflow` memory), close to fully mechanical.
+- **`phase-kickoff`** — start a roadmap phase from consistent grounding: load the phase section + relevant `GAME_DESIGN.md` context, ask the phase's open questions *before* coding, seed the task list, flag if the phase warrants a bigger model.
 
-I haven't scaffolded these as actual skill files yet — I don't have a confirmed skill-file schema for this environment in front of me, and getting that wrong silently (a file that looks right but doesn't register) is worse than not having it. Worth doing as a real Phase 0 task once confirmed, not guessed at here.
+If either skill's instructions drift from reality (file moved, workflow changed), fix the skill in the same commit as the change that broke it.
 
 ---
 
@@ -87,9 +92,9 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 **Fun payoff**: none directly — this is the one phase that's pure infrastructure. Kept deliberately small so it doesn't delay Phase 1.
 
 **Scope**:
-- Scaffold `src/sim/` with the layering above; add a seeded PRNG utility.
+- Scaffold `src/sim/` with the layering above; add a seeded PRNG utility and a fixed-tick time utility (tick size constant + accumulator helper), with the tick/determinism conventions documented inline where the next contributor will trip over them.
 - Add Vitest (`npm i -D vitest`, a `test` script, minimal config) with one real test to prove the harness works.
-- Add golden-snapshot tests for the existing `ShipSideView`/`ShipTopView` renderers across all current hero presets — immediate regression protection for work already done.
+- Add golden-snapshot tests for the existing `ShipSideView`/`ShipTopView` renderers across all current hero presets — immediate regression protection for work already done. Document the deliberate-update workflow (see Testing strategy) next to the tests.
 - Add a CI job (test + typecheck + lint) gating on push/PR.
 - Scaffold `src/input/` with the intent-mapping pattern (even with just one or two intents wired up, to establish the shape before Phase 1 needs it in earnest).
 
@@ -100,7 +105,7 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 **Assets/questions needed**: none — this is pure infrastructure on existing code.
 
 **Kickoff prompt**:
-> Set up Phase 0 of the Fleet Tycoon roadmap (see `docs/ROADMAP.md`). Scaffold `src/sim/` as a pure, dependency-free TypeScript module with a seeded PRNG utility. Add Vitest with a `test` script and golden-snapshot tests covering every current hero preset's `ShipSideView`/`ShipTopView` output. Add a CI workflow that runs typecheck, lint, and tests on push/PR. Scaffold `src/input/` with an intent-mapping pattern (name a couple of example intents, don't over-build). No gameplay code yet — this phase is infrastructure only.
+> Set up Phase 0 of the Fleet Tycoon roadmap (see `docs/ROADMAP.md`). Scaffold `src/sim/` as a pure, dependency-free TypeScript module with a seeded PRNG utility and a fixed-tick time utility (tick constant + accumulator), documenting the determinism and fixed-timestep conventions inline. Add Vitest with a `test` script and golden-snapshot tests covering every current hero preset's `ShipSideView`/`ShipTopView` output, with the deliberate-snapshot-update workflow documented beside them. Add a CI workflow that runs typecheck, lint, and tests on push/PR. Scaffold `src/input/` with an intent-mapping pattern (name a couple of example intents, don't over-build). No gameplay code yet — this phase is infrastructure only.
 
 **Exit criteria**: `npm test` runs and passes locally and in CI; a deliberately-introduced bug in a renderer fails a snapshot test; `src/sim/` and `src/input/` exist with clear conventions documented inline for what goes in them.
 
@@ -113,21 +118,24 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 **Scope**:
 - One hardcoded route between two fixed ports (reuse existing map/harbour visuals or something minimal — doesn't need real geography yet).
 - One ship (reuse an existing preset, e.g. Isle of Arran) sailing that route in compressed real-time.
+- **The SVG→Phaser texture pipeline, exercised for the first time.** The "one source of truth" claim (README/`GAME_DESIGN.md`) becomes real here: rasterise `ShipTopView` SVG output into a Phaser texture (SVG string → data URL → texture) so the ship sprite in the game *is* the builder's render. This is its own scoped task, not an assumed freebie — get it working for one ship at one zoom level before worrying about generality.
 - The docking minigame itself: twin-screw differential thrust + bow thruster against a wind vector (start with a fixed or simple randomized wind, not the full weather system), rendered top-down with the detail called for in `GAME_DESIGN.md` (buoys, wind indicator, pier geometry).
+- **Physics advances on the Phase 0 fixed tick, never on frame delta** — this is where that convention gets proven for real. Phaser may interpolate between ticks for smooth rendering, but ship position/velocity truth changes only in `sim/` steps.
 - Manual takeover is always available (per design) — no notice/alert system yet, that's Phase 2 when there's something to be interrupted from.
 - Win/fail feedback: successful alongside vs. a bump/damage outcome. No repair economy yet — a failed docking can just reset or show "you'd have damaged the ship here."
 - Keyboard controls first; on-screen touch controls can follow once the keyboard scheme feels right, but both should go through the Phase 0 intent layer from the start so adding the second input method later is wiring, not rework.
+- Stretch, only if the phase is going well: a first pass at engine/wind audio. Docking feel is half sound (engine note changing under load), and even placeholder audio may change the feel verdict this phase exists to deliver. Don't block the exit criteria on it.
 
 **Testing**: the docking physics step (position/velocity given thrust inputs + wind, as a pure function in `sim/`) gets unit tests — given known inputs, verify known outputs. The *feel* of it doesn't get tested by an assertion; that's a human judgement call, playtested by Adam.
 
-**Model**: lean toward Opus (or high-effort Sonnet) specifically for the physics/feel tuning pass — this is the "expensive to get the shape wrong" moment called out above. Routine wiring (rendering the buoys, hooking up the intent layer) is fine on Sonnet default.
+**Model**: lean toward a frontier model (Fable/Opus, per Model selection above) specifically for the physics/feel tuning pass — this is the "expensive to get the shape wrong" moment called out there. Routine wiring (rendering the buoys, hooking up the intent layer) is fine on Sonnet default.
 
 **Assets/questions needed**:
 - No new ship art needed (reuse an existing preset).
 - Open design question to resolve during this phase: how forgiving should the physics feel be for a first pass? (Arcade-simple vs. something with real momentum/inertia — `GAME_DESIGN.md` leans arcade-simple; this phase is where that gets proven or revised.)
 
 **Kickoff prompt**:
-> Build Phase 1 of the Fleet Tycoon roadmap: the docking minigame, as its own small playable loop. One ship (reuse the Isle of Arran preset), one fixed two-port route, sailing in compressed real-time. Implement the docking physics (twin-screw differential thrust + bow thruster against a wind vector) as a pure, unit-tested function in `src/sim/docking.ts`, driven through the Phase 0 input-intent layer with a keyboard control scheme. Render it top-down with buoys, a wind indicator, and pier geometry per `docs/GAME_DESIGN.md`. No economy, no contracts, no crew yet — the only goal is: can you feel good bringing this ship alongside by hand.
+> Build Phase 1 of the Fleet Tycoon roadmap: the docking minigame, as its own small playable loop. One ship (reuse the Isle of Arran preset), one fixed two-port route, sailing in compressed real-time. First, rasterise the ship's `ShipTopView` SVG into a Phaser texture so the in-game sprite is the builder's render — one source of truth. Implement the docking physics (twin-screw differential thrust + bow thruster against a wind vector) as pure, unit-tested fixed-tick step functions in `src/sim/docking.ts` — advancing on the Phase 0 tick, never on frame delta — driven through the input-intent layer with a keyboard control scheme. Render it top-down with buoys, a wind indicator, and pier geometry per `docs/GAME_DESIGN.md`. No economy, no contracts, no crew yet — the only goal is: can you feel good bringing this ship alongside by hand.
 
 **Exit criteria**: you can open the game, sail the one route, take manual control, and dock — and it's genuinely fun to attempt, per Adam's own judgement (this is the one exit criterion that isn't a checkbox).
 
@@ -143,15 +151,16 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 - An automated captain (single skill stat) who handles a sailing if you don't intervene, including the refuse-to-sail gate for structural mismatches.
 - The docking "notice" — an alert as the ship nears dock, giving you the informed choice to take over, per `GAME_DESIGN.md`.
 - Risk resolution wired to the Phase 0 seeded RNG: hazard (still just the one route, can be a single hardcoded risk factor) × weather × captain skill.
+- **Save/load of game state** — this phase creates the first progress that outlives a session (a contract's reliability history over game-weeks), so it's where the `GameStateStore` named in the architecture actually gets built: same swappable-interface pattern as the ship builder's `DesignStore`, localStorage implementation first. Without this, the "playable at every phase boundary" principle quietly breaks — you'd lose your company every refresh.
 
 **Testing**: reliability-bar bookkeeping and the risk-roll formula are pure `sim/` functions — both fully unit-testable, including "does a known seed produce a known outcome" determinism checks.
 
-**Model**: this is one of the Opus-worthy moments from above — the risk/reliability formula shape that later phases build on. Lean toward Opus (or high-effort Sonnet) for that specific design pass; the surrounding wiring (day/week cadence, the notice alert) is fine on Sonnet default.
+**Model**: this is one of the frontier-model moments from above — the risk/reliability formula shape that later phases build on. Lean toward Fable/Opus for that specific design pass; the surrounding wiring (day/week cadence, the notice alert, save/load) is fine on Sonnet default.
 
 **Assets/questions needed**: resolves two `GAME_DESIGN.md` open questions — manual-mode failure severity (same tiers as automated risk, or different), and how literally "lose the contract" should be simulated at this stage.
 
 **Kickoff prompt**:
-> Build Phase 2 of the Fleet Tycoon roadmap: turn the Phase 1 route into a real contract. Add a reliability bar tracking on-time/cancelled sailings for that one route, a day/week cadence with a visible weather forecast, and an automated captain (one skill stat) who sails routine crossings and refuses structurally mismatched ones. Wire risk resolution through the Phase 0 seeded RNG. Add the docking "notice" alert as a ship nears port so manual takeover is an informed choice, not something you have to watch for constantly. Still one route, one ship — the goal is the sail-risky-vs-cancel-safe tension being real, not breadth.
+> Build Phase 2 of the Fleet Tycoon roadmap: turn the Phase 1 route into a real contract. Add a reliability bar tracking on-time/cancelled sailings for that one route, a day/week cadence with a visible weather forecast, and an automated captain (one skill stat) who sails routine crossings and refuses structurally mismatched ones. Wire risk resolution through the Phase 0 seeded RNG. Add the docking "notice" alert as a ship nears port so manual takeover is an informed choice, not something you have to watch for constantly. Build the `GameStateStore` (swappable interface like the ship builder's `DesignStore`, localStorage first) so company progress survives a page reload. Still one route, one ship — the goal is the sail-risky-vs-cancel-safe tension being real, not breadth.
 
 **Exit criteria**: a played session can actually lose the contract through poor decisions, and it feels like *your* fault, not a random event.
 
@@ -169,7 +178,7 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 
 **Testing**: economy calculations and the wear/condition model are pure `sim/` functions, unit tested. Worth a handful of "balance sanity" tests here too — e.g. a cheap crew + old ship combination should measurably raise incident rates over N simulated seeded days, proving the risk model actually responds to the levers it's supposed to.
 
-**Model**: the core economy formula shape (fares/costs/subsidy/wear interacting) is the other Opus-worthy moment from the summary above — worth the extra depth since Phase 4's route economics build on it. Ship purchase/assignment UI and the crew-hiring flow itself are routine, Sonnet default.
+**Model**: the core economy formula shape (fares/costs/subsidy/wear interacting) is the other frontier-model moment from the summary above — worth the extra depth since Phase 4's route economics build on it. Ship purchase/assignment UI and the crew-hiring flow itself are routine, Sonnet default.
 
 **Assets/questions needed**: resolves the subsidy-model open question from `GAME_DESIGN.md` (needed once there's real money to balance against). No new art needed yet — still built on existing presets.
 
@@ -219,7 +228,7 @@ I haven't scaffolded these as actual skill files yet — I don't have a confirme
 
 **Testing**: same discipline as before — new `sim/` behaviour gets unit tests, new content gets golden/snapshot coverage where it's the kind of thing that could silently regress.
 
-**Model**: Sonnet default; Opus for whichever of the remaining open design questions turns out to need real judgement once you're in it.
+**Model**: Sonnet default; Fable/Opus for whichever of the remaining open design questions turns out to need real judgement once you're in it.
 
 **Assets/questions needed**: Island/Loch class reference photos already exist and are sorted; no new gathering needed, just the tuning workflow already established. Resolves the remaining `GAME_DESIGN.md` open questions not already closed by earlier phases.
 
