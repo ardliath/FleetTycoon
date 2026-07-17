@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -7,4 +8,9 @@ export default defineConfig({
   // https://<user>.github.io/FleetTycoon/ — update if the repo is renamed.
   base: '/FleetTycoon/',
   plugins: [react()],
+  test: {
+    // Ship-renderer snapshot tests use react-dom/server's renderToStaticMarkup,
+    // which needs no DOM — plain Node is enough and keeps tests fast.
+    environment: 'node',
+  },
 })

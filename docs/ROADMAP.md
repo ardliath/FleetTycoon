@@ -109,6 +109,13 @@ If either skill's instructions drift from reality (file moved, workflow changed)
 
 **Exit criteria**: `npm test` runs and passes locally and in CI; a deliberately-introduced bug in a renderer fails a snapshot test; `src/sim/` and `src/input/` exist with clear conventions documented inline for what goes in them.
 
+**Done (2026-07-17).** All scope items landed: `src/sim/` (`rng.ts`, `tick.ts`, `README.md`), Vitest wired up (`npm test` / `test:watch`), 18 golden snapshots covering every hero preset's side + top view, `.github/workflows/ci.yml` (typecheck + lint + test on push/PR, kept separate from `deploy.yml`), `src/input/` (`intents.ts`, `keyboardIntents.ts`) with two example intents. Exit criteria proven directly: reintroduced the exact "extra deck of height" bug from earlier ship-tuning sessions and confirmed every side-profile snapshot failed for the right reason, then reverted clean.
+
+Notes for later phases:
+- Tick size defaults to 100ms (10 ticks/sec) — a starting point per the roadmap's own suggestion, not tuned. Phase 1 should retune it against actual docking feel, not treat it as settled.
+- Snapshot tests use `renderToStaticMarkup` (react-dom/server) rather than jsdom + Testing Library — no DOM needed at all for pure-render output, keeps the suite fast. Worth reusing this pattern for any other pure-render snapshot need before reaching for jsdom.
+- CI is a dedicated `ci.yml` (push + pull_request), not folded into `deploy.yml` (which stays push-to-main-only) — branches get tested before they ever reach main.
+
 ---
 
 ## Phase 1 — The docking feel
