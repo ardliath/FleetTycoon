@@ -8,16 +8,27 @@ export interface PhaserGameRef {
   scene: Phaser.Scene | null
 }
 
-export const PhaserGame = forwardRef<PhaserGameRef>(function PhaserGame(_props, ref) {
+interface PhaserGameProps {
+  /** Override the default game config (e.g. a different scene list). */
+  config?: Phaser.Types.Core.GameConfig
+}
+
+export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(function PhaserGame(
+  { config = gameConfig },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<Phaser.Game | null>(null)
+  // captured once — the game is created a single time on mount; to switch
+  // configs, remount the component (each tab does exactly that).
+  const configRef = useRef(config)
 
   useLayoutEffect(() => {
     if (gameRef.current || !containerRef.current) return
 
     const container = containerRef.current
     gameRef.current = new Phaser.Game({
-      ...gameConfig,
+      ...configRef.current,
       parent: container,
       width: container.clientWidth,
       height: container.clientHeight,

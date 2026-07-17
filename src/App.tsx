@@ -1,45 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { PhaserGame } from './PhaserGame'
-import { EventBus } from './game/EventBus'
+import { dockingConfig } from './game/dockingConfig'
 import { ShipBuilder } from './ship/ShipBuilder'
 import { FleetGallery } from './ship/FleetGallery'
 import './App.css'
 
-type View = 'shipyard' | 'fleet' | 'harbour'
+type View = 'shipyard' | 'fleet' | 'docking'
 
-function Harbour() {
-  const [fleetSize, setFleetSize] = useState(0)
-  const [gold, setGold] = useState(0)
-
-  useEffect(() => {
-    EventBus.on('fleet-updated', setFleetSize)
-    EventBus.on('gold-updated', setGold)
-    return () => {
-      EventBus.off('fleet-updated', setFleetSize)
-      EventBus.off('gold-updated', setGold)
-    }
-  }, [])
-
+function Docking() {
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
-        <dl className="stats">
-          <div>
-            <dt>Fleet</dt>
-            <dd>{fleetSize}</dd>
-          </div>
-          <div>
-            <dt>Gold</dt>
-            <dd>{gold}</dd>
-          </div>
-        </dl>
-        <button type="button" onClick={() => EventBus.emit('add-ship')}>
-          Add Ship
-        </button>
-      </aside>
-      <main className="viewport">
-        <PhaserGame />
-      </main>
+    <div className="docking-view">
+      <PhaserGame config={dockingConfig} />
     </div>
   )
 }
@@ -68,15 +39,15 @@ function App() {
           </button>
           <button
             type="button"
-            className={view === 'harbour' ? 'active' : ''}
-            onClick={() => setView('harbour')}
+            className={view === 'docking' ? 'active' : ''}
+            onClick={() => setView('docking')}
           >
-            Harbour
+            Docking
           </button>
         </nav>
       </header>
       <div className="app-content">
-        {view === 'shipyard' ? <ShipBuilder /> : view === 'fleet' ? <FleetGallery /> : <Harbour />}
+        {view === 'shipyard' ? <ShipBuilder /> : view === 'fleet' ? <FleetGallery /> : <Docking />}
       </div>
     </div>
   )

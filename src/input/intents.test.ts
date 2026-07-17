@@ -12,7 +12,7 @@ describe('HeldIntents', () => {
     const intents = new HeldIntents()
     intents.set('portEngineAhead', true)
     expect(intents.isActive('portEngineAhead')).toBe(true)
-    expect(intents.isActive('bowThrusterLeft')).toBe(false)
+    expect(intents.isActive('stbdEngineAhead')).toBe(false)
   })
 
   it('clears an intent when set to false', () => {
@@ -20,5 +20,14 @@ describe('HeldIntents', () => {
     intents.set('portEngineAhead', true)
     intents.set('portEngineAhead', false)
     expect(intents.isActive('portEngineAhead')).toBe(false)
+  })
+
+  it('clear() releases everything at once', () => {
+    const intents = new HeldIntents()
+    intents.set('portEngineAhead', true)
+    intents.set('stbdEngineAstern', true)
+    intents.clear()
+    expect(intents.isActive('portEngineAhead')).toBe(false)
+    expect(intents.isActive('stbdEngineAstern')).toBe(false)
   })
 })

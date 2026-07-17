@@ -10,7 +10,16 @@ const VB_H = 26
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-export function ShipTopView({ design }: { design: ShipDesign }) {
+export function ShipTopView({
+  design,
+  background = true,
+}: {
+  design: ShipDesign
+  /** Draw the sea backdrop behind the hull. True for the builder/gallery;
+   * set false when rasterising to a game texture so the margins stay
+   * transparent (the game draws its own sea). */
+  background?: boolean
+}) {
   const d = design
   const L = d.lengthM
   const B = clamp(L * 0.16, 9.5, 18) // beam
@@ -267,7 +276,7 @@ export function ShipTopView({ design }: { design: ShipDesign }) {
 
   return (
     <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="ship-view" role="img" aria-label={`Deck plan of ${d.name}`}>
-      <rect x={0} y={0} width={VB_W} height={VB_H} fill={C.sea} />
+      {background && <rect x={0} y={0} width={VB_W} height={VB_H} fill={C.sea} />}
       {/* black hull rim with green painted deck inside the bulwarks */}
       <path d={hullPath} fill={C.hull} stroke={C.hullShade} strokeWidth={0.3} />
       <path d={deckPath} fill={C.deckGreen} />
