@@ -66,7 +66,7 @@ I'm deliberately **not** recommending an engine-agnostic rendering abstraction n
 
 ### Model selection
 
-**Sonnet is the default** for essentially all of this project's work — it's already handled the ship builder, the SVG geometry, the persistence layer, and the git history surgery well over the course of this build. Reach for a frontier model — **Fable or Opus** (Adam has in practice used Fable for the design-heavy moments on this project: the ship-builder kickoff, the roadmap review) — specifically for the handful of moments where getting the *shape* of something wrong is expensive to unwind later:
+**Sonnet is the default** for essentially all of this project's work — it's already handled the ship builder, the SVG geometry, the persistence layer, and the git history surgery well over the course of this build. Reach for a frontier model — **Fable or Opus, interchangeably; Adam picks whichever his token budget allows on the day, and sessions shouldn't push for one over the other** — specifically for the handful of moments where getting the *shape* of something wrong is expensive to unwind later:
 
 - Designing the risk/reliability formulas (Phase 2) and economy formulas (Phase 3) — many later systems build on this shape. Phase 0 itself is pure scaffolding (folder structure, well-known algorithms, test/CI config) with no real judgement calls in it, so it doesn't need this despite being where `sim/` first appears.
 - Tuning the docking minigame's *feel* (Phase 1) — "is this actually fun" is a subtle judgement call worth the extra depth.
