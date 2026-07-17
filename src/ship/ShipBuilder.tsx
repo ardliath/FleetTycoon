@@ -13,13 +13,15 @@ import { HERO_SHIPS } from './presets'
 import { ShipSideView } from './ShipSideView'
 import { ShipTopView } from './ShipTopView'
 import { FunnelSide } from './Funnel'
+import { effectiveTopOffset } from './funnelGeometry'
 import { DEFAULT_OVERLAY, designStore, mergeDesign, type OverlaySettings } from './storage'
 import './shipbuilder.css'
 
 /** Large close-up of the current funnel, standing on a deck edge. */
 function FunnelCloseUp({ design }: { design: ShipDesign }) {
   const f = design.funnel
-  const vw = Math.max(13, f.baseWidth + f.height * 0.4 + 4)
+  const spread = Math.max(f.baseWidth, f.topWidth) + Math.abs(f.topOffset ?? 0)
+  const vw = Math.max(13, spread + f.height * 0.4 + 4)
   const vh = f.height + 3.5
   const X = (x: number) => x
   const Y = (h: number) => vh - 0.4 - h
@@ -34,6 +36,7 @@ function FunnelCloseUp({ design }: { design: ShipDesign }) {
         baseW={f.baseWidth}
         topW={f.topWidth}
         height={f.height}
+        topOffset={f.topOffset}
         X={X}
         Y={Y}
       />
@@ -234,6 +237,18 @@ export function ShipBuilder() {
             />
           </label>
           <label className="row">
+            <span>
+              Hull height <em>{(design.hull.freeboardM ?? 3.4 + design.lengthM * 0.018).toFixed(1)}m</em>
+            </span>
+            <input
+              type="range"
+              min={20}
+              max={90}
+              value={Math.round((design.hull.freeboardM ?? 3.4 + design.lengthM * 0.018) * 10)}
+              onChange={(e) => updateHull({ freeboardM: Number(e.target.value) / 10 })}
+            />
+          </label>
+          <label className="row">
             <span>Bow</span>
             <select value={design.bow} onChange={(e) => update({ bow: e.target.value as BowStyle })}>
               {BOW_OPTIONS.map((o) => (
@@ -267,6 +282,18 @@ export function ShipBuilder() {
               max={3}
               value={design.superstructure.decks}
               onChange={(e) => updateSS({ decks: Number(e.target.value) })}
+            />
+          </label>
+          <label className="row">
+            <span>
+              Deck height <em>{(design.superstructure.deckHeightM ?? 2.6).toFixed(1)}m</em>
+            </span>
+            <input
+              type="range"
+              min={15}
+              max={45}
+              value={Math.round((design.superstructure.deckHeightM ?? 2.6) * 10)}
+              onChange={(e) => updateSS({ deckHeightM: Number(e.target.value) / 10 })}
             />
           </label>
           <label className="row">
@@ -327,6 +354,52 @@ export function ShipBuilder() {
                   max={96}
                   value={Math.round((design.superstructure.upperEndFrac ?? design.superstructure.endFrac - 0.06) * 100)}
                   onChange={(e) => updateSS({ upperEndFrac: Number(e.target.value) / 100 })}
+                />
+              </label>
+            </>
+          )}
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={design.superstructure.hullStep != null}
+              onChange={(e) =>
+                updateSS({ hullStep: e.target.checked ? { posFrac: 0.6, drop: 1.2 } : undefined })
+              }
+            />
+            Step down in white hull
+          </label>
+          {design.superstructure.hullStep != null && (
+            <>
+              <label className="row">
+                <span>
+                  Step position <em>{Math.round(design.superstructure.hullStep.posFrac * 100)}%</em>
+                </span>
+                <input
+                  type="range"
+                  min={15}
+                  max={92}
+                  value={Math.round(design.superstructure.hullStep.posFrac * 100)}
+                  onChange={(e) =>
+                    updateSS({
+                      hullStep: { ...design.superstructure.hullStep!, posFrac: Number(e.target.value) / 100 },
+                    })
+                  }
+                />
+              </label>
+              <label className="row">
+                <span>
+                  Step drop <em>{design.superstructure.hullStep.drop.toFixed(1)}m</em>
+                </span>
+                <input
+                  type="range"
+                  min={2}
+                  max={30}
+                  value={Math.round(design.superstructure.hullStep.drop * 10)}
+                  onChange={(e) =>
+                    updateSS({
+                      hullStep: { ...design.superstructure.hullStep!, drop: Number(e.target.value) / 10 },
+                    })
+                  }
                 />
               </label>
             </>
@@ -401,7 +474,7 @@ export function ShipBuilder() {
             <input
               type="range"
               min={20}
-              max={70}
+              max={210}
               value={Math.round(design.funnel.baseWidth * 10)}
               onChange={(e) => updateFunnel({ baseWidth: Number(e.target.value) / 10 })}
             />
@@ -413,7 +486,7 @@ export function ShipBuilder() {
             <input
               type="range"
               min={15}
-              max={65}
+              max={195}
               value={Math.round(design.funnel.topWidth * 10)}
               onChange={(e) => updateFunnel({ topWidth: Number(e.target.value) / 10 })}
             />
@@ -440,6 +513,18 @@ export function ShipBuilder() {
               max={2}
               value={design.funnel.baseDeckDrop ?? 0}
               onChange={(e) => updateFunnel({ baseDeckDrop: Number(e.target.value) })}
+            />
+          </label>
+          <label className="row">
+            <span>
+              Top offset <em>{effectiveTopOffset(design.funnel).toFixed(1)}m</em>
+            </span>
+            <input
+              type="range"
+              min={-120}
+              max={120}
+              value={Math.round(effectiveTopOffset(design.funnel) * 10)}
+              onChange={(e) => updateFunnel({ topOffset: Number(e.target.value) / 10 })}
             />
           </label>
         </section>

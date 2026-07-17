@@ -10,7 +10,7 @@ const VB_W = 140 // metres of world shown horizontally
 const AIR = 26 // metres above the waterline
 const SEA = 3.5 // metres of sea shown below the waterline
 const VB_H = AIR + SEA
-const DECK_H = 2.6 // height of one superstructure deck
+const DECK_H = 2.6 // default height of one superstructure deck
 const BRIDGE_H = 2.8
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -18,6 +18,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 interface Geo {
   L: number
   F: number // freeboard: deck height above waterline
+  deckH: number // height of one superstructure deck
   x0: number // world x of the bow tip
   rake: number // horizontal run of the stem from deck to waterline
   transomRake: number
@@ -30,7 +31,8 @@ interface Geo {
 
 function geometry(d: ShipDesign): Geo {
   const L = d.lengthM
-  const F = 3.4 + L * 0.018
+  const F = d.hull.freeboardM ?? 3.4 + L * 0.018
+  const deckH = d.superstructure.deckHeightM ?? DECK_H
   const rake = d.bow === 'modern' ? F * 0.55 : F * 0.95
   const ssStart = clamp(d.superstructure.startFrac, 0.04, 0.6) * L
   const ssEnd = clamp(d.superstructure.endFrac, d.superstructure.startFrac + 0.18, 0.97) * L
@@ -38,12 +40,13 @@ function geometry(d: ShipDesign): Geo {
   return {
     L,
     F,
+    deckH,
     x0: (VB_W - L) / 2,
     rake,
     transomRake: F * 0.22,
     ssStart,
     ssEnd,
-    topDeckH: F + d.superstructure.decks * DECK_H,
+    topDeckH: F + d.superstructure.decks * deckH,
     bridgeX: ssStart + 0.6,
     bridgeLen,
   }
@@ -121,20 +124,44 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
       if (upperStartFrac != null) xs = clamp(upperStartFrac, 0.05, 0.9) * g.L
       if (upperEndFrac != null) xe = clamp(upperEndFrac, 0.1, 0.96) * g.L
     }
-    deckBlocks.push({ xs, xe, h0: g.F + i * DECK_H, h1: g.F + (i + 1) * DECK_H })
+    deckBlocks.push({ xs, xe, h0: g.F + i * g.deckH, h1: g.F + (i + 1) * g.deckH })
   }
-  for (const b of deckBlocks) {
+
+  // Step down in the lowest white band (Isle of Arran / Hebridean Isles):
+  // aft of stepX the top of deck 0 drops by stepDrop.
+  const step = d.superstructure.hullStep
+  const stepX =
+    step && step.drop > 0 ? clamp(step.posFrac * g.L, deckBlocks[0].xs + 2, deckBlocks[0].xe - 2) : null
+  const stepDrop = stepX != null ? (step as { drop: number }).drop : 0
+  /** Effective top height of a deck band at ship-local x (handles the step). */
+  const bandTopAt = (i: number, x: number) =>
+    i === 0 && stepX != null && x >= stepX ? deckBlocks[i].h1 - stepDrop : deckBlocks[i].h1
+
+  deckBlocks.forEach((b, i) => {
+    if (i === 0 && stepX != null) {
+      parts.push(
+        <path
+          key={`deck-${i}`}
+          d={[
+            `M ${X(b.xs)} ${Y(b.h0)}`,
+            `L ${X(b.xs)} ${Y(b.h1)}`,
+            `L ${X(stepX)} ${Y(b.h1)}`,
+            `L ${X(stepX)} ${Y(b.h1 - stepDrop)}`,
+            `L ${X(b.xe)} ${Y(b.h1 - stepDrop)}`,
+            `L ${X(b.xe)} ${Y(b.h0)}`,
+            'Z',
+          ].join(' ')}
+          fill={C.white}
+        />,
+      )
+    } else {
+      parts.push(
+        <rect key={`deck-${i}`} x={X(b.xs)} y={Y(b.h1)} width={b.xe - b.xs} height={b.h1 - b.h0} fill={C.white} />,
+      )
+    }
     parts.push(
-      <rect
-        key={`deck-${b.h0}`}
-        x={X(b.xs)}
-        y={Y(b.h1)}
-        width={b.xe - b.xs}
-        height={b.h1 - b.h0}
-        fill={C.white}
-      />,
       <line
-        key={`deckline-${b.h0}`}
+        key={`deckline-${i}`}
         x1={X(b.xs)}
         y1={Y(b.h0)}
         x2={X(b.xe)}
@@ -143,21 +170,22 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
         strokeWidth={0.28}
       />,
     )
-  }
+  })
 
   // ---- windows on each deck ----
   const winStyle = d.superstructure.windows
   deckBlocks.forEach((b, i) => {
     const style = winStyle === 'mixed' ? (i === 0 ? 'porthole' : 'rect') : winStyle
-    const cy = (b.h0 + b.h1) / 2
     if (style === 'porthole') {
       for (let x = b.xs + 1.4; x < b.xe - 1.2; x += 1.9) {
+        const cy = (b.h0 + bandTopAt(i, x)) / 2
         parts.push(
           <circle key={`w${i}-${x.toFixed(1)}`} cx={X(x)} cy={Y(cy)} r={0.36} fill={C.window} />,
         )
       }
     } else {
       for (let x = b.xs + 1.2; x < b.xe - 1.8; x += 1.75) {
+        const cy = (b.h0 + bandTopAt(i, x)) / 2
         parts.push(
           <rect
             key={`w${i}-${x.toFixed(1)}`}
@@ -224,13 +252,15 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
   // covering x, else the (possibly stepped-down) weather deck.
   const surfaceAt = (x: number) => {
     let h = deckAt(d, g, x)
-    for (const b of deckBlocks) if (x >= b.xs && x <= b.xe) h = Math.max(h, b.h1)
+    deckBlocks.forEach((b, i) => {
+      if (x >= b.xs && x <= b.xe) h = Math.max(h, bandTopAt(i, x))
+    })
     return h
   }
   // An athwartships pair (count 2) lines up into a single silhouette from
   // the side, so one drawing serves both.
   const funnelX = clamp(d.funnel.posFrac * g.L, g.L * 0.12, g.L * 0.94)
-  const funnelBase = Math.max(g.F, surfaceAt(funnelX) - (d.funnel.baseDeckDrop ?? 0) * DECK_H)
+  const funnelBase = Math.max(g.F, surfaceAt(funnelX) - (d.funnel.baseDeckDrop ?? 0) * g.deckH)
   parts.push(
     <FunnelSide
       key="funnel"
@@ -240,6 +270,7 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
       baseW={d.funnel.baseWidth}
       topW={d.funnel.topWidth}
       height={d.funnel.height}
+      topOffset={d.funnel.topOffset}
       X={X}
       Y={Y}
     />,
@@ -403,7 +434,7 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
       <text
         key="web"
         x={X(g.ssEnd - 3)}
-        y={Y(g.F + DECK_H * 0.32)}
+        y={Y(g.F + g.deckH * 0.32)}
         textAnchor="end"
         fill={C.redText}
         fontFamily="Verdana, sans-serif"

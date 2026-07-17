@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { LIVERY as C } from './palette'
+import { STYLE_SHIFT_FRAC } from './funnelGeometry'
 import type { FunnelStyle } from './types'
 
 /** Side-view funnels — the signature of the fleet, so they get real detail:
@@ -62,6 +63,9 @@ interface FunnelProps {
   topW: number
   /** height above its deck, metres */
   height: number
+  /** horizontal offset of the top from the base, metres (positive = aft).
+   * Overrides the per-style default rake when provided. */
+  topOffset?: number
   /** map ship-local x to svg x */
   X: (x: number) => number
   /** map height-above-waterline to svg y */
@@ -121,11 +125,13 @@ function capBody(
   return taperedBody(X, Y, capFx, h0 + h - capH, capH, capW, wTop, shift * (capH / h), rr)
 }
 
-export function FunnelSide({ style, fx, h0, baseW, topW, height, X, Y }: FunnelProps): JSX.Element {
+export function FunnelSide({ style, fx, h0, baseW, topW, height, topOffset, X, Y }: FunnelProps): JSX.Element {
   const el: JSX.Element[] = []
   const h = height
   const wB = baseW
   const wT = topW
+  // horizontal shear of the top: explicit override, else per-style default rake
+  const shift = topOffset ?? STYLE_SHIFT_FRAC[style] * h
   // disc scales with the funnel but never overflows a narrow one
   const discR = Math.max(0.6, Math.min(Math.min(wB, wT) * 0.48, h * 0.32))
 
@@ -140,7 +146,6 @@ export function FunnelSide({ style, fx, h0, baseW, topW, height, X, Y }: FunnelP
 
   if (style === 'classic') {
     // gently raked, tapered — Isle of Arran, Isle of Mull, Lochnevis
-    const shift = h * 0.1
     const capH = Math.min(Math.max(h * 0.22, 0.9), 1.8)
     const hoodDrop = capH * 1.1
     el.push(
@@ -159,7 +164,6 @@ export function FunnelSide({ style, fx, h0, baseW, topW, height, X, Y }: FunnelP
     )
   } else if (style === 'drum') {
     // plain band cap, no hood — simple workhorse funnel
-    const shift = h * 0.05
     const capH = Math.min(Math.max(h * 0.15, 0.6), 1.1)
     el.push(
       <path key="body" d={taperedBody(X, Y, fx, h0, h, wB, wT, shift, 0.6)} fill={C.funnelRed} />,
@@ -169,7 +173,6 @@ export function FunnelSide({ style, fx, h0, baseW, topW, height, X, Y }: FunnelP
     )
   } else if (style === 'raked') {
     // strongly swept, black hood over the whole top-aft — Clansman, Hebrides
-    const shift = h * 0.32
     const capH = Math.min(Math.max(h * 0.2, 1), 1.6)
     const hoodDrop = Math.min(h * 0.38, h - capH - 1)
     el.push(
@@ -191,7 +194,6 @@ export function FunnelSide({ style, fx, h0, baseW, topW, height, X, Y }: FunnelP
     )
   } else if (style === 'flick') {
     // Caledonian Isles: strong taper, thin cap, black fin kicked up and aft
-    const shift = h * 0.18
     const capH = 0.7
     const finRise = h * 0.12
     const finDrop = Math.min(h * 0.26, h - capH - 1)
@@ -214,23 +216,27 @@ export function FunnelSide({ style, fx, h0, baseW, topW, height, X, Y }: FunnelP
       <LionDisc key="disc" cx={X(fx + shift * 0.2 - wT * 0.12)} cy={Y(h0 + h * 0.5)} r={discR} />,
     )
   } else {
-    // modern (Loch Seaforth): raked leading edge, cluster of exhaust pipes
+    // modern (Loch Seaforth): raked leading edge, cluster of exhaust pipes.
+    // Top edge spans wT, sheared aft by `shift`; base spans wB.
     const lean = Math.min(1.2, wB * 0.3)
+    const topL = fx - wT / 2 + shift + lean
+    const topR = fx + wT / 2 + shift
     el.push(
       <path
         key="body"
-        d={`M ${X(fx - wB / 2)} ${Y(h0)} L ${X(fx - wB / 2 + lean)} ${Y(h0 + h - 0.4)} Q ${X(fx - wB / 2 + lean + 0.1)} ${Y(h0 + h)}, ${X(fx - wB / 2 + lean + 0.7)} ${Y(h0 + h)} L ${X(fx + wT / 2 + (wB - wT) / 2)} ${Y(h0 + h)} L ${X(fx + wB / 2)} ${Y(h0)} Z`}
+        d={`M ${X(fx - wB / 2)} ${Y(h0)} L ${X(topL)} ${Y(h0 + h - 0.4)} Q ${X(topL + 0.1)} ${Y(h0 + h)}, ${X(topL + 0.7)} ${Y(h0 + h)} L ${X(topR)} ${Y(h0 + h)} L ${X(fx + wB / 2)} ${Y(h0)} Z`}
         fill={C.funnelRed}
       />,
       <rect key="shade" x={X(fx + wB / 2 - 0.45)} y={Y(h0 + h)} width={0.45} height={h} fill={C.funnelRedShade} />,
-      <rect key="cap" x={X(fx - wB / 2 + lean)} y={Y(h0 + h)} width={wB - lean} height={0.55} fill={C.funnelBlack} />,
+      <rect key="cap" x={X(topL)} y={Y(h0 + h)} width={topR - topL} height={0.55} fill={C.funnelBlack} />,
     )
     const pipeHs = [h * 0.42, h * 0.55, h * 0.48]
+    const pipeMid = (topL + topR) / 2
     pipeHs.forEach((ph, p) => {
       el.push(
         <rect
           key={`pipe-${p}`}
-          x={X(fx - 1.1 + p * 0.95)}
+          x={X(pipeMid - 1.4 + p * 0.95)}
           y={Y(h0 + h + ph)}
           width={0.6}
           height={ph}
@@ -238,7 +244,7 @@ export function FunnelSide({ style, fx, h0, baseW, topW, height, X, Y }: FunnelP
         />,
       )
     })
-    el.push(<LionDisc key="disc" cx={X(fx + 0.3)} cy={Y(h0 + h * 0.52)} r={discR} />)
+    el.push(<LionDisc key="disc" cx={X(fx + shift * 0.5 + 0.3)} cy={Y(h0 + h * 0.52)} r={discR} />)
   }
 
   return <g>{el}</g>

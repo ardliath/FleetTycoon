@@ -27,6 +27,17 @@ export interface ShipDesign {
      * (Isle of Arran, Isle of Mull). */
     upperStartFrac?: number
     upperEndFrac?: number
+    /** Height of one white superstructure deck, metres (default ~2.6). */
+    deckHeightM?: number
+    /** Step down in the lowest white deck band: aft of `posFrac` the top of
+     * the band drops by `drop` metres. Recreates the Isle of Arran / Hebridean
+     * Isles stepped profile. Omit for a flat-topped deck. */
+    hullStep?: {
+      /** Position of the step along the ship, fraction of length from bow. */
+      posFrac: number
+      /** How far the deck top drops aft of the step, metres. */
+      drop: number
+    }
     bridge: BridgeStyle
     windows: WindowStyle
   }
@@ -48,6 +59,10 @@ export interface ShipDesign {
      * (default 0). With 1, the funnel rises from the deck below and emerges
      * through/behind the deckhouse — as on Isle of Arran. */
     baseDeckDrop?: number
+    /** Horizontal offset of the funnel top relative to its base, metres
+     * (positive = aft). Shears the funnel; can move the top out beyond the
+     * base footprint. When omitted, a per-style default rake is used. */
+    topOffset?: number
   }
   masts: {
     foremast: boolean
@@ -77,6 +92,9 @@ export interface ShipDesign {
     bowThruster: boolean
     /** Red www.calmac.co.uk lettering on the white band. */
     webAddress: boolean
+    /** Freeboard: height of the black hull above the waterline, metres.
+     * When omitted, derived from length (~3.4 + 1.8% of length). */
+    freeboardM?: number
   }
 }
 
