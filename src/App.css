@@ -7,29 +7,35 @@
 .topbar {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
   padding: 0 20px;
   height: 52px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }
 
 .topbar h1 {
-  font-size: 18px;
+  font-size: 19px;
   margin: 0;
+  white-space: nowrap;
 }
 
 .topbar nav {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .topbar nav button {
   font: inherit;
-  font-size: 14px;
-  padding: 6px 14px;
-  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 8px 12px 6px;
   border: none;
+  border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -40,8 +46,8 @@
 }
 
 .topbar nav button.active {
-  background: var(--accent-bg);
   color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .app-content {

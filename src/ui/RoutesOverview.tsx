@@ -347,7 +347,7 @@ export function RoutesOverview() {
                 className="route-overview__bar-fill"
                 style={{
                   width: `${Math.round(reliability * 100)}%`,
-                  background: reliability < 0.6 ? '#c0503f' : reliability < 0.8 ? '#d4a13f' : '#3ba55d',
+                  background: reliability < 0.6 ? 'var(--danger)' : reliability < 0.8 ? 'var(--brass)' : '#3f7a52',
                 }}
               />
             </div>

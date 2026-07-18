@@ -1,13 +1,28 @@
+/**
+ * Design language: "Chart" — an Admiralty hydrographic chart, not a
+ * generic dashboard. Water-tinted surfaces, ink text, a chart-teal
+ * accent, a serif for named things (route/ship/place names read like
+ * chart cartography lettering), a monospace for data (soundings-style
+ * figures: cash, distance, hazard%). This is the same visual language
+ * sim/hazard.ts's zones and the Map tab already speak — see the
+ * fleet-tycoon-visual-directions pitch this was chosen from.
+ */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
+  --text: #4a5c51;
+  --text-h: #16231d;
+  --bg: #e3ece5;
+  --surface: #f5f2e6;
+  --border: #b9c9bc;
+  --accent: #2f6f6a;
+  --accent-bg: rgba(47, 111, 106, 0.1);
+  --accent-border: rgba(47, 111, 106, 0.45);
+  --danger: #a6392c;
+  --danger-bg: rgba(166, 57, 44, 0.1);
+  --brass: #8a6a34;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --serif: 'Spectral', Georgia, 'Iowan Old Style', serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
 
   font: 16px/145% var(--sans);
   color-scheme: light dark;
@@ -21,13 +36,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
+    --text: #93a89c;
+    --text-h: #e7ede8;
+    --bg: #101815;
+    --surface: #182420;
+    --border: #33453c;
+    --accent: #6fc3bb;
+    --accent-bg: rgba(111, 195, 187, 0.14);
+    --accent-border: rgba(111, 195, 187, 0.5);
+    --danger: #e2685a;
+    --danger-bg: rgba(226, 104, 90, 0.14);
+    --brass: #c9a15c;
   }
 }
 
@@ -44,6 +63,8 @@ body,
 
 h1,
 h2 {
+  font-family: var(--serif);
+  font-style: italic;
   font-weight: 500;
   color: var(--text-h);
 }
