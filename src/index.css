@@ -19,6 +19,8 @@
   --danger: #a6392c;
   --danger-bg: rgba(166, 57, 44, 0.1);
   --brass: #8a6a34;
+  --land: #e4d9bd;
+  --land-border: #b3a06e;
 
   --sans: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
   --serif: 'Spectral', Georgia, 'Iowan Old Style', serif;
@@ -47,6 +49,8 @@
     --danger: #e2685a;
     --danger-bg: rgba(226, 104, 90, 0.14);
     --brass: #c9a15c;
+    --land: #3a3323;
+    --land-border: #5c4f30;
   }
 }
 

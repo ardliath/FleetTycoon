@@ -2,6 +2,7 @@ import { useGame } from '../game/GameContext'
 import { routePoints, shipDesignFor } from '../game/routeHelpers'
 import { ARRIVE_AT, DEPART_AT } from '../game/routeTiming'
 import { CLYDE_HAZARD_ZONES, CLYDE_PORTS, CLYDE_ROUTES, findClydePort } from '../map/clyde'
+import { CLYDE_COASTLINE_CLOSED, CLYDE_COASTLINE_OPEN } from '../map/clydeCoastline'
 import { dayProgress } from '../sim/calendar'
 import {
   crossingFraction,
@@ -23,8 +24,12 @@ import './mapView.css'
  *
  * Decorative-only, flagged as such: the scattered depth soundings are
  * texture, not real bathymetry (no such dataset exists for this game).
- * The coastline is still just port dots and lines — real land shapes are
- * the next pass, once there's real coastline geometry to draw from.
+ *
+ * Land shapes (src/map/clydeCoastline.ts) are real OpenStreetMap
+ * coastline data, simplified — not hand-drawn. Islands fully inside the
+ * data's bounding box (Arran, Bute, the Cumbraes) render filled; mainland
+ * coast clipped by that box renders as stroke-only linework, honestly,
+ * rather than faked closed with an invented fill.
  */
 
 const PADDING_KM = 24
@@ -110,9 +115,23 @@ export function MapView() {
   const cartoucheWidth = 20
   const cartoucheHeight = 15
 
+  const ringPath = (ring: Point[], closed: boolean) => {
+    const svgPts = ring.map(toSvg)
+    const d = svgPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+    return closed ? `${d} Z` : d
+  }
+
   return (
     <div className="map-view">
       <svg viewBox={`0 0 ${width} ${height}`} className="map-view__svg" role="img" aria-label="Clyde pilot chart">
+        {/* coastline — real OpenStreetMap geometry, see clydeCoastline.ts */}
+        {CLYDE_COASTLINE_CLOSED.map((ring, i) => (
+          <path key={`land-${i}`} d={ringPath(ring, true)} className="map-view__land" />
+        ))}
+        {CLYDE_COASTLINE_OPEN.map((chain, i) => (
+          <path key={`coast-${i}`} d={ringPath(chain, false)} className="map-view__coast-line" />
+        ))}
+
         {/* latitude (horizontal) lines */}
         {latLines.map((lat) => {
           const svgY = toSvg({ x: minX, y: lat * 111.32 }).y
@@ -261,6 +280,13 @@ export function MapView() {
         Solid lines are active routes; faint lines are proposable but not yet started. Ship marks show today's
         assigned crossings live. The shaded patch is the outer Firth's mild chop — this pilot deliberately has
         nothing like the Hebridean hazards still to come. Depth figures are decorative, not real soundings.
+      </p>
+      <p className="map-view__attribution">
+        Coastline data &copy;{' '}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          OpenStreetMap
+        </a>{' '}
+        contributors, ODbL.
       </p>
     </div>
   )
