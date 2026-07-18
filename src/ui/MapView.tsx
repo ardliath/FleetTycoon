@@ -3,6 +3,7 @@ import { routePoints, shipDesignFor } from '../game/routeHelpers'
 import { ARRIVE_AT, DEPART_AT } from '../game/routeTiming'
 import { CLYDE_HAZARD_ZONES, CLYDE_PORTS, CLYDE_ROUTES, findClydePort } from '../map/clyde'
 import { CLYDE_COASTLINE } from '../map/clydeCoastline'
+import { CLYDE_SOUNDINGS } from '../map/clydeSoundings'
 import { dayProgress } from '../sim/calendar'
 import {
   crossingFraction,
@@ -22,14 +23,14 @@ import './mapView.css'
  * src/game/routeTiming.ts for what that window means and why it exists —
  * the sim never had an explicit departure/arrival moment before this).
  *
- * Decorative-only, flagged as such: the scattered depth soundings are
- * texture, not real bathymetry (no such dataset exists for this game).
- *
  * Land shapes (src/map/clydeCoastline.ts) are real OpenStreetMap
  * coastline data, simplified — not hand-drawn. Islands and mainland both
  * render filled; see that file's own comment for how mainland pieces
  * (clipped by the data's query box) get closed into real polygons rather
  * than left as open linework.
+ *
+ * Depth soundings (src/map/clydeSoundings.ts) are real point queries
+ * against EMODnet Bathymetry's depth grid, not decoration.
  */
 
 const PADDING_KM = 24
@@ -51,21 +52,6 @@ function formatLon(lonAbsWest: number): string {
   const { deg, min } = toDegMin(lonAbsWest)
   return `${deg}°${String(min).padStart(2, '0')}'W`
 }
-
-/** Fixed, deterministic decorative soundings — texture only, not real
- * depth data. Positions are fractions (0..1) of the viewBox. */
-const SOUNDINGS: Array<{ fx: number; fy: number; v: number }> = [
-  { fx: 0.12, fy: 0.16, v: 42 },
-  { fx: 0.3, fy: 0.1, v: 58 },
-  { fx: 0.68, fy: 0.14, v: 31 },
-  { fx: 0.83, fy: 0.28, v: 19 },
-  { fx: 0.18, fy: 0.42, v: 27 },
-  { fx: 0.6, fy: 0.46, v: 22 },
-  { fx: 0.4, fy: 0.62, v: 15 },
-  { fx: 0.78, fy: 0.68, v: 11 },
-  { fx: 0.14, fy: 0.78, v: 8 },
-  { fx: 0.55, fy: 0.85, v: 6 },
-]
 
 export function MapView() {
   const { contract } = useGame()
@@ -155,12 +141,15 @@ export function MapView() {
           )
         })}
 
-        {/* decorative soundings — texture, not real bathymetry */}
-        {SOUNDINGS.map((s, i) => (
-          <text key={i} x={s.fx * width} y={s.fy * height} className="map-view__sounding">
-            {s.v}
-          </text>
-        ))}
+        {/* depth soundings — real EMODnet point queries, see clydeSoundings.ts */}
+        {CLYDE_SOUNDINGS.map((s, i) => {
+          const p = toSvg(s)
+          return (
+            <text key={i} x={p.x} y={p.y} className="map-view__sounding">
+              {s.depthM}
+            </text>
+          )
+        })}
 
         {CLYDE_HAZARD_ZONES.map((zone) => {
           const c = toSvg(zone.center)
@@ -276,14 +265,18 @@ export function MapView() {
       <p className="map-view__note">
         Solid lines are active routes; faint lines are proposable but not yet started. Ship marks show today's
         assigned crossings live. The shaded patch is the outer Firth's mild chop — this pilot deliberately has
-        nothing like the Hebridean hazards still to come. Depth figures are decorative, not real soundings.
+        nothing like the Hebridean hazards still to come. Depth figures are real soundings in metres.
       </p>
       <p className="map-view__attribution">
         Coastline data &copy;{' '}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           OpenStreetMap
         </a>{' '}
-        contributors, ODbL.
+        contributors, ODbL. Depth data &copy;{' '}
+        <a href="https://emodnet.ec.europa.eu/" target="_blank" rel="noreferrer">
+          EMODnet Bathymetry
+        </a>
+        .
       </p>
     </div>
   )
