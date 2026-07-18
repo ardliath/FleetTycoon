@@ -13,17 +13,39 @@
   width: 100%;
   height: auto;
   background: var(--bg);
-  background-image:
-    repeating-linear-gradient(0deg, var(--border) 0 1px, transparent 1px 40px),
-    repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px 40px);
   border: 1px solid var(--border);
   border-radius: 4px;
+}
+
+.map-view__graticule {
+  stroke: var(--border);
+  stroke-width: 0.08;
+}
+
+.map-view__graticule-label {
+  font-family: var(--mono);
+  font-size: 1.5px;
+  fill: var(--text);
+  opacity: 0.75;
+}
+
+.map-view__sounding {
+  font-family: var(--mono);
+  font-size: 1.6px;
+  fill: var(--text);
+  opacity: 0.4;
+  text-anchor: middle;
 }
 
 .map-view__hazard {
   fill: var(--danger);
   stroke: none;
   /* per-zone opacity set inline from severity, see MapView.tsx */
+}
+
+.map-view__hazard-mark {
+  fill: var(--danger);
+  opacity: 0.8;
 }
 
 .map-view__route {
@@ -52,6 +74,59 @@
   font-size: 2px;
   fill: var(--text-h);
   dominant-baseline: middle;
+}
+
+.map-view__ship {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 0.15;
+}
+
+.map-view__compass-ring {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 0.15;
+  opacity: 0.6;
+}
+
+.map-view__compass-needle {
+  fill: var(--text-h);
+}
+
+.map-view__compass-needle-minor {
+  fill: var(--text);
+  opacity: 0.4;
+}
+
+.map-view__compass-label {
+  font-family: var(--sans);
+  font-size: 2px;
+  font-weight: 600;
+  fill: var(--text-h);
+}
+
+.map-view__scale-bar {
+  stroke: var(--text-h);
+  stroke-width: 0.2;
+}
+
+.map-view__cartouche {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 0.15;
+}
+
+.map-view__cartouche-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 3px;
+  fill: var(--text-h);
+}
+
+.map-view__cartouche-subtitle {
+  font-family: var(--mono);
+  font-size: 1.5px;
+  fill: var(--text);
 }
 
 .map-view__note {

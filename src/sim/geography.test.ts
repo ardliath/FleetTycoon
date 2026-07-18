@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { distanceBetweenPorts, distanceKm, projectPort } from './geography'
+import {
+  crossingFraction,
+  distanceBetweenPorts,
+  distanceKm,
+  positionAlongRoute,
+  projectPort,
+  unprojectPoint,
+} from './geography'
 
 describe('projectPort', () => {
   it('is deterministic for the same input', () => {
@@ -62,5 +69,51 @@ describe('distanceBetweenPorts', () => {
     const shortCrossing = distanceBetweenPorts(wemyssBay, rothesay)
     const longCrossing = distanceBetweenPorts(ardrossan, brodick)
     expect(longCrossing).toBeGreaterThan(shortCrossing)
+  })
+})
+
+describe('unprojectPoint', () => {
+  it('round-trips through projectPort', () => {
+    const original = { lat: 55.8747, lon: -4.8859 }
+    const roundTripped = unprojectPoint(projectPort(original))
+    expect(roundTripped.lat).toBeCloseTo(original.lat, 9)
+    expect(roundTripped.lon).toBeCloseTo(original.lon, 9)
+  })
+})
+
+describe('positionAlongRoute', () => {
+  const a = { x: 0, y: 0 }
+  const b = { x: 10, y: 20 }
+
+  it('is a at fraction 0', () => {
+    expect(positionAlongRoute(a, b, 0)).toEqual(a)
+  })
+
+  it('is b at fraction 1', () => {
+    expect(positionAlongRoute(a, b, 1)).toEqual(b)
+  })
+
+  it('is the midpoint at fraction 0.5', () => {
+    expect(positionAlongRoute(a, b, 0.5)).toEqual({ x: 5, y: 10 })
+  })
+})
+
+describe('crossingFraction', () => {
+  it('is null before departure', () => {
+    expect(crossingFraction(0.3, 0.55, 0.88)).toBeNull()
+  })
+
+  it('is null at or after arrival', () => {
+    expect(crossingFraction(0.88, 0.55, 0.88)).toBeNull()
+    expect(crossingFraction(0.95, 0.55, 0.88)).toBeNull()
+  })
+
+  it('is 0 exactly at departure', () => {
+    expect(crossingFraction(0.55, 0.55, 0.88)).toBe(0)
+  })
+
+  it('rises linearly across the crossing window', () => {
+    const mid = crossingFraction(0.715, 0.55, 0.88)! // (0.88-0.55)/2 + 0.55
+    expect(mid).toBeCloseTo(0.5, 1)
   })
 })

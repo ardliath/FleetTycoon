@@ -42,10 +42,40 @@ export function projectPort(port: Pick<Port, 'lat' | 'lon'>): Point {
   return { x, y }
 }
 
+/** Inverse of projectPort — a projected point back to lat/lon. Used to
+ * label the map's graticule with real coordinates rather than made-up
+ * ones. */
+export function unprojectPoint(p: Point): { lat: number; lon: number } {
+  const lat = p.y / KM_PER_LAT_DEGREE
+  const lon = p.x / (Math.cos((REFERENCE_LAT_DEG * Math.PI) / 180) * KM_PER_LAT_DEGREE)
+  return { lat, lon }
+}
+
 export function distanceKm(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
 export function distanceBetweenPorts(a: Pick<Port, 'lat' | 'lon'>, b: Pick<Port, 'lat' | 'lon'>): number {
   return distanceKm(projectPort(a), projectPort(b))
+}
+
+/**
+ * Where a ship sits along a crossing, 0..1 -> a point between `a` and `b`.
+ * Straight-line interpolation — the map is stylised, not a real transit
+ * simulation with currents/headings, so a lerp is honest to what this is.
+ */
+export function positionAlongRoute(a: Point, b: Point, fraction: number): Point {
+  return { x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction }
+}
+
+/**
+ * Maps today's day-progress (0..1, see sim/calendar.ts's dayProgress) onto
+ * a crossing fraction (0..1) for the departAt..arriveAt window, or null
+ * outside it — meaning the ship is resting at her origin port, not
+ * mid-crossing. Pure function of the same three numbers; see
+ * src/game/routeTiming.ts for what values the app actually uses.
+ */
+export function crossingFraction(dayProgress: number, departAt: number, arriveAt: number): number | null {
+  if (dayProgress < departAt || dayProgress >= arriveAt) return null
+  return (dayProgress - departAt) / (arriveAt - departAt)
 }
