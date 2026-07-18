@@ -1,4 +1,5 @@
-import { CLYDE_HAZARD_ZONES, findClydePort, type RouteDefinition } from '../map/clyde'
+import type { RouteDefinition } from '../map/clyde'
+import { ALL_HAZARD_ZONES, findPort } from '../map/regions'
 import { HERO_SHIPS } from '../ship/presets'
 import { distanceBetweenPorts, projectPort } from '../sim/geography'
 import { hazardForRoute } from '../sim/hazard'
@@ -24,8 +25,8 @@ export function shipDesignFor(presetName: string) {
 }
 
 function routeGeometry(route: RouteDefinition) {
-  const portA = findClydePort(route.portAId)
-  const portB = findClydePort(route.portBId)
+  const portA = findPort(route.portAId)
+  const portB = findPort(route.portBId)
   if (!portA || !portB) return null
   return { portA, portB, a: projectPort(portA), b: projectPort(portB) }
 }
@@ -37,7 +38,7 @@ export function routeDistanceKm(route: RouteDefinition): number {
 
 export function routeHazard(route: RouteDefinition): number {
   const geom = routeGeometry(route)
-  return geom ? hazardForRoute(geom.a, geom.b, CLYDE_HAZARD_ZONES) : 0
+  return geom ? hazardForRoute(geom.a, geom.b, ALL_HAZARD_ZONES) : 0
 }
 
 export function routePoints(route: RouteDefinition) {

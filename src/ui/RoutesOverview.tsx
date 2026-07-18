@@ -2,7 +2,7 @@ import { PhaserGame } from '../PhaserGame'
 import { dockingConfig } from '../game/dockingConfig'
 import { useGame } from '../game/GameContext'
 import { routeDistanceKm, routeHazard, shipDesignFor } from '../game/routeHelpers'
-import { CLYDE_ROUTES, findClydeRoute } from '../map/clyde'
+import { ALL_ROUTES, findRoute } from '../map/regions'
 import { dayProgress, forecastLabel, rollWeather } from '../sim/calendar'
 import { experienceOf } from '../sim/crew'
 import { computeReliability } from '../sim/reliability'
@@ -39,7 +39,7 @@ export function RoutesOverview() {
   }
 
   const activeRouteIds = new Set(contract.routes.map((r) => r.routeId))
-  const proposable = CLYDE_ROUTES.filter((r) => !activeRouteIds.has(r.id))
+  const proposable = ALL_ROUTES.filter((r) => !activeRouteIds.has(r.id))
   const progress = dayProgress(contract.calendar)
 
   return (
@@ -71,7 +71,7 @@ export function RoutesOverview() {
       )}
 
       {contract.routes.map((route) => {
-        const routeDef = findClydeRoute(route.routeId)
+        const routeDef = findRoute(route.routeId)
         if (!routeDef) return null
         const ship = contract.fleet.find((s) => s.id === route.assignedShipId) ?? null
         const captain = contract.crew.find((c) => c.id === route.assignedCaptainId) ?? null

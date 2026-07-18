@@ -3,9 +3,8 @@ import { useGame } from '../game/GameContext'
 import { routePoints, shipDesignFor } from '../game/routeHelpers'
 import { ARRIVE_AT, DEPART_AT } from '../game/routeTiming'
 import { bindCameraIntents } from '../input/cameraIntents'
-import { CLYDE_HAZARD_ZONES, CLYDE_PORTS, CLYDE_ROUTES, findClydePort } from '../map/clyde'
-import { CLYDE_COASTLINE } from '../map/clydeCoastline'
-import { CLYDE_DEPTH_CONTOURS } from '../map/clydeDepthContours'
+import { CLYDE_PORTS } from '../map/clyde'
+import { ALL_COASTLINE, ALL_DEPTH_CONTOURS, ALL_HAZARD_ZONES, ALL_PORTS, ALL_ROUTES, findPort } from '../map/regions'
 import { dayProgress } from '../sim/calendar'
 import {
   crossingFraction,
@@ -18,21 +17,23 @@ import { isInDrydock } from '../sim/shipCondition'
 import './mapView.css'
 
 /**
- * A real Admiralty-chart-inspired rendering of the Clyde pilot: a real
- * lat/lon graticule, a compass rose, a title cartouche, a scale bar
- * derived from the actual projection, the authored hazard zone, and each
- * active route's assigned ship animated across her crossing window (see
+ * A real Admiralty-chart-inspired rendering of Scottish waters — one
+ * continuous map, not a sheet per region (see src/map/regions.ts for how
+ * each region's data merges in): a real lat/lon graticule, a compass
+ * rose, a title cartouche, a scale bar derived from the actual
+ * projection, every region's authored hazard zones, and each active
+ * route's assigned ship animated across her crossing window (see
  * src/game/routeTiming.ts for what that window means and why it exists —
  * the sim never had an explicit departure/arrival moment before this).
  *
- * Land shapes (src/map/clydeCoastline.ts) are real OpenStreetMap
- * coastline data, simplified — not hand-drawn. Islands and mainland both
- * render filled; see that file's own comment for how mainland pieces
- * (clipped by the data's query box) get closed into real polygons rather
- * than left as open linework.
+ * Land shapes (src/map/*Coastline.ts, one file per region) are real
+ * OpenStreetMap coastline data, simplified — not hand-drawn. Islands and
+ * mainland both render filled; see clydeCoastline.ts's comment for how
+ * mainland pieces (clipped by the data's query box) get closed into real
+ * polygons rather than left as open linework.
  *
- * Depth contours (src/map/clydeDepthContours.ts) are real isobaths —
- * marching squares run over an EMODnet Bathymetry raster grid, not
+ * Depth contours (src/map/*DepthContours.ts) are real isobaths — marching
+ * squares run over an EMODnet Bathymetry raster grid per region, not
  * decoration and not point soundings.
  *
  * The camera (pan/zoom) is state, not a fixed viewBox: `camera` holds a
@@ -40,17 +41,17 @@ import './mapView.css'
  * graticule step, scale-bar value, chrome sizing) derives from it each
  * render. Wheel-to-zoom and drag-to-pan come from src/input/cameraIntents.ts
  * — MapView never binds wheel/pointer events directly, per CLAUDE.md's
- * input-intent rule. Only Clyde has data today, so panning beyond it just
- * shows open water/blank space — that's the camera mechanism working
- * ahead of the data, not a bug, and is exactly what lets the rest of
- * Scotland be added into the same map rather than a sheet per region.
+ * input-intent rule. The default view still frames the Clyde specifically
+ * (it's the game's home port), but panning/zooming out reaches whichever
+ * regions have been added so far; empty water beyond that is the camera
+ * mechanism working ahead of the data, not a bug.
  *
  * Text and "chrome" (compass, cartouche, scale-bar ticks) are sized in km
  * proportional to the current zoom (`zoomScale`) so they stay a roughly
  * constant apparent size on screen rather than ballooning or vanishing as
- * you zoom — real geometry (coastline, contours, routes, the hazard
- * zone's radius) is left as true km, so it legitimately gets bigger or
- * smaller with zoom like real map content. Stroke widths are not yet
+ * you zoom — real geometry (coastline, contours, routes, hazard zone
+ * radii) is left as true km, so it legitimately gets bigger or smaller
+ * with zoom like real map content. Stroke widths are not yet
  * zoom-compensated (a known, minor follow-up).
  */
 
@@ -173,7 +174,7 @@ export function MapView() {
   // doc comment above.
   const zoomScale = camera.widthKm / DEFAULT_VIEW.widthKm
 
-  const points = CLYDE_PORTS.map((port) => ({ port, xy: projectPort(port) }))
+  const points = ALL_PORTS.map((port) => ({ port, xy: projectPort(port) }))
 
   // sim space has y growing north; SVG has y growing down the screen.
   const toSvg = (p: Point) => ({ x: p.x - minX, y: maxY - p.y })
@@ -219,10 +220,10 @@ export function MapView() {
         viewBox={`0 0 ${width} ${height}`}
         className="map-view__svg"
         role="img"
-        aria-label="Clyde pilot chart"
+        aria-label="West of Scotland chart"
       >
         {/* coastline — real OpenStreetMap geometry, see clydeCoastline.ts */}
-        {CLYDE_COASTLINE.map((ring, i) => (
+        {ALL_COASTLINE.map((ring, i) => (
           <path key={`land-${i}`} d={ringPath(ring)} className="map-view__land" />
         ))}
 
@@ -263,7 +264,7 @@ export function MapView() {
         })}
 
         {/* depth contours — real isobaths, see clydeDepthContours.ts */}
-        {CLYDE_DEPTH_CONTOURS.map((contour, i) => {
+        {ALL_DEPTH_CONTOURS.map((contour, i) => {
           const svgPts = contour.points.map(toSvg)
           const d = svgPts.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
           const labelAt = svgPts[Math.floor(svgPts.length * 0.4)]
@@ -282,7 +283,7 @@ export function MapView() {
           )
         })}
 
-        {CLYDE_HAZARD_ZONES.map((zone) => {
+        {ALL_HAZARD_ZONES.map((zone) => {
           const c = toSvg(zone.center)
           const markSize = 1.6 * zoomScale
           return (
@@ -296,9 +297,9 @@ export function MapView() {
           )
         })}
 
-        {CLYDE_ROUTES.map((route) => {
-          const portA = findClydePort(route.portAId)
-          const portB = findClydePort(route.portBId)
+        {ALL_ROUTES.map((route) => {
+          const portA = findPort(route.portAId)
+          const portB = findPort(route.portBId)
           if (!portA || !portB) return null
           const a = toSvg(projectPort(portA))
           const b = toSvg(projectPort(portB))
@@ -336,7 +337,7 @@ export function MapView() {
             her crossing window (routeTiming.ts), resting at her origin
             port the rest of the day. */}
         {contract.routes.map((route) => {
-          const routeDef = CLYDE_ROUTES.find((r) => r.id === route.routeId)
+          const routeDef = ALL_ROUTES.find((r) => r.id === route.routeId)
           const geom = routeDef ? routePoints(routeDef) : null
           const ship = contract.fleet.find((s) => s.id === route.assignedShipId)
           if (!routeDef || !geom || !ship) return null
@@ -403,7 +404,7 @@ export function MapView() {
             className="map-view__cartouche-title"
             style={{ fontSize: 3 * zoomScale }}
           >
-            Clyde
+            West of Scotland
           </text>
           <text
             x={cartoucheWidth / 2}
@@ -412,7 +413,7 @@ export function MapView() {
             className="map-view__cartouche-subtitle"
             style={{ fontSize: 1.5 * zoomScale }}
           >
-            Fleet Tycoon pilot
+            Fleet Tycoon
           </text>
           <text
             x={cartoucheWidth / 2}
@@ -427,8 +428,9 @@ export function MapView() {
       </svg>
       <p className="map-view__note">
         Solid lines are active routes; faint lines are proposable but not yet started. Ship marks show today's
-        assigned crossings live. The shaded patch is the outer Firth's mild chop — this pilot deliberately has
-        nothing like the Hebridean hazards still to come. Depth contours are real isobaths in metres.
+        assigned crossings live. Shaded patches are open-water chop, honest to the geography here — nothing yet
+        like the Hebridean hazards still to come. Depth contours are real isobaths in metres. Scroll to zoom, drag
+        to pan.
       </p>
       <p className="map-view__attribution">
         Coastline data &copy;{' '}

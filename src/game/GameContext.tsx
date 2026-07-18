@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { findClydeRoute } from '../map/clyde'
+import { findRoute } from '../map/regions'
 import { advanceCalendar, dayProgress, rollWeather, DAY_DURATION_MS } from '../sim/calendar'
 import { resolveAutomatedSailing } from '../sim/captain'
 import { dailyWage, experienceOf, recordSailing } from '../sim/crew'
@@ -87,7 +87,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     (routeId: string, outcome: SailingOutcome, opts: { logCrewExperience: boolean }) => {
       const current = contractRef.current
       const route = current.routes.find((r) => r.routeId === routeId)
-      const routeDef = findClydeRoute(routeId)
+      const routeDef = findRoute(routeId)
       if (!route) return
 
       const history = recordSailingOutcome(route.history, outcome)
@@ -138,7 +138,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     (routeId: string) => {
       const current = contractRef.current
       const route = current.routes.find((r) => r.routeId === routeId)
-      const routeDef = findClydeRoute(routeId)
+      const routeDef = findRoute(routeId)
       if (!route || !routeDef) return
       const ship = current.fleet.find((s) => s.id === route.assignedShipId)
       const captain = current.crew.find((c) => c.id === route.assignedCaptainId)

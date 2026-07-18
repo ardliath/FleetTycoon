@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { findClydeRoute } from '../map/clyde'
+import { findRoute } from '../map/regions'
 import { HERO_SHIPS } from '../ship/presets'
 import { canAfford, shipPurchasePrice } from '../sim/economy'
 import { dailyWage, experienceOf, hireCost, newCaptain, type Captain, type CaptainTier } from '../sim/crew'
@@ -118,7 +118,7 @@ export function CompanyOverview() {
                     <option value="">Unassigned</option>
                     {contract.routes.map((r) => (
                       <option key={r.routeId} value={r.routeId}>
-                        {findClydeRoute(r.routeId)?.name ?? r.routeId}
+                        {findRoute(r.routeId)?.name ?? r.routeId}
                       </option>
                     ))}
                   </select>
@@ -171,7 +171,7 @@ export function CompanyOverview() {
                     <option value="">Unassigned</option>
                     {contract.routes.map((r) => (
                       <option key={r.routeId} value={r.routeId}>
-                        {findClydeRoute(r.routeId)?.name ?? r.routeId}
+                        {findRoute(r.routeId)?.name ?? r.routeId}
                       </option>
                     ))}
                   </select>
