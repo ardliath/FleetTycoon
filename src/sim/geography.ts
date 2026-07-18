@@ -20,11 +20,16 @@ export interface Point {
   y: number
 }
 
-/** Reference latitude for the longitude cosine correction below — chosen
- * near the centre of Scotland's west coast so east-west distances don't
- * distort much across the range this map eventually covers (Clyde up to
- * Shetland). */
-const REFERENCE_LAT_DEG = 57
+/** Reference latitude for the longitude cosine correction below. Balanced
+ * between the Clyde (~55.6°N) and Shetland (~60.8°N) — the full range this
+ * map now covers — rather than sitting close to either end, so east-west
+ * distortion is roughly even at both extremes (~7-8%) instead of small at
+ * one end and much larger at the other. Changing this rescales every
+ * projected x-coordinate; any baked/static geometry (coastline, depth
+ * contours) generated under the old value needs its x-coordinates rescaled
+ * by cos(newRef)/cos(oldRef) to stay aligned with ports and routes, which
+ * are projected live from lat/lon and pick up the new value automatically. */
+const REFERENCE_LAT_DEG = 58
 
 /** Roughly km per degree of latitude — scales both axes into a consistent
  * unit (km) rather than raw degrees, so distances read as actual
