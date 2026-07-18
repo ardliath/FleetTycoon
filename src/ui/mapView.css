@@ -15,6 +15,13 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.map-view__svg:active {
+  cursor: grabbing;
 }
 
 .map-view__land {
