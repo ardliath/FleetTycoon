@@ -4,6 +4,7 @@ import { shipTopDataUri, SHIP_TEXTURE_VIEWBOX } from '../shipTexture'
 import { createTickAccumulator, TICK_MS } from '../../sim/tick'
 import { HeldIntents } from '../../input/intents'
 import { bindKeyboardIntents, readDockingInputs } from '../../input/keyboardIntents'
+import { EventBus } from '../EventBus'
 import {
   DEFAULT_DOCKING_PARAMS,
   advanceControls,
@@ -43,6 +44,16 @@ const SHIP = HERO_SHIPS[0] // Isle of Arran
 const SHIP_TEX = 'ship-arran-top'
 
 type Outcome = 'sailing' | 'berthed' | 'damaged' | 'adrift'
+
+/** Emitted on EventBus when a docking attempt concludes — the Route
+ * overview (Phase 2) listens for this to map the result onto a
+ * SailingOutcome; the standalone Docking tab (Phase 1 free-play) ignores
+ * it, since nothing there listens. `impactSpeed` (m/s) is only meaningful
+ * for 'damaged' and is what Phase 2's outcome mapping tiers severity on. */
+export interface DockingResult {
+  outcome: Exclude<Outcome, 'sailing'>
+  impactSpeed?: number
+}
 
 export class DockingScene extends Phaser.Scene {
   private accumulator = createTickAccumulator(TICK_MS)
@@ -245,7 +256,7 @@ export class DockingScene extends Phaser.Scene {
       (p) => p.y >= QUAY.ySouth && p.x >= QUAY.x0 && p.x <= QUAY.x1,
     )
     if (touchingQuay && speed > HARD_CONTACT_SPEED) {
-      return this.finish('damaged')
+      return this.finish('damaged', speed)
     }
 
     // parallel to the quay = heading near 0 or pi
@@ -261,7 +272,7 @@ export class DockingScene extends Phaser.Scene {
     }
   }
 
-  private finish(outcome: Outcome) {
+  private finish(outcome: Exclude<Outcome, 'sailing'>, impactSpeed?: number) {
     this.outcome = outcome
     const msg =
       outcome === 'berthed'
@@ -270,6 +281,7 @@ export class DockingScene extends Phaser.Scene {
           ? 'Too hard!\nYou would have damaged the ship.'
           : 'Adrift!\nLost her out of the harbour.'
     this.banner.setText(`${msg}\n\nPress R to try again`)
+    EventBus.emit('docking-result', { outcome, impactSpeed } satisfies DockingResult)
   }
 
   private reset() {

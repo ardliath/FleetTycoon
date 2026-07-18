@@ -1,0 +1,156 @@
+.route-overview {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.route-overview--docking {
+  max-width: none;
+  padding: 0;
+}
+
+.route-overview--lost {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.route-overview__stats {
+  display: flex;
+  gap: 24px;
+}
+
+.route-overview__stat-block {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-overview__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.route-overview__value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.route-overview__forecast--calm {
+  color: #3ba55d;
+}
+.route-overview__forecast--moderate {
+  color: #d4a13f;
+}
+.route-overview__forecast--rough {
+  color: #d9772e;
+}
+.route-overview__forecast--severe {
+  color: #c0503f;
+}
+
+.route-overview__bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.route-overview__bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.route-overview__day-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.route-overview__day-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s linear;
+}
+
+.route-overview__last-outcome {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+}
+
+.route-overview__notice {
+  border: 2px solid var(--accent-border);
+  background: var(--accent-bg);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.route-overview__notice p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.route-overview__notice-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.route-overview__notice-actions button {
+  font: inherit;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+}
+
+.route-overview__ghost {
+  background: transparent !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  cursor: default !important;
+}
+
+.route-overview__cancel {
+  align-self: flex-start;
+  font: inherit;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.route-overview__cancel:hover {
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.route-overview--lost button {
+  font: inherit;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  margin-top: 8px;
+}

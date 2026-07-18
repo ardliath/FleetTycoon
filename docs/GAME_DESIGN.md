@@ -95,14 +95,14 @@ This is the mechanic that differentiates Fleet Tycoon from a pure spreadsheet ty
 ## Open questions (deliberately deferred)
 
 - **Mooring lines**: automated (AI dock crew) vs. a strategic layer the player also engages with. Explicitly parked — "don't need to worry about that now."
-- **Manual-mode failure severity**: does player-caused damage resolve on the same odds/tiers as an automated captain's failure, or differently (harsher, since you had full information; or more forgiving, since a human is reading the situation live)?
+- ~~**Manual-mode failure severity**~~ — **Resolved (Phase 2, 2026-07-18):** different, deliberately. Automated sailings resolve through the risk-roll odds/tiers in `sim/captain.ts` (hazard × weather × captain skill). Manual dockings instead resolve deterministically from the docking attempt's own physics — impact speed at contact (see `sim/dockingOutcome.ts`'s `SEVERE_IMPACT_SPEED` threshold) decides `damaged` vs. `severelyDamaged`, with no separate roll. A human reading the situation live gets to earn (or blow) the outcome directly, rather than have it re-randomized on top of their play.
 - **Licence progression gating**: skill-demonstrated (must actually dock competently to advance) vs. experience/hours-logged, or a mix?
 - **Subsidy model**: flat lifeline top-up per route, or something that scales with usage/passengers carried?
-- **Rival operator**: how much (if any) real simulation vs. an abstracted "you lost the contract" outcome.
+- ~~**Rival operator**~~ — **Partially resolved (Phase 2, 2026-07-18):** contract loss is route-scoped and abstracted, not a simulated rival — losing the one route Phase 2 tracks just ends that contract ("re-tendered away"), no competing-operator simulation underneath it. Whether a fuller rival-operator layer ever gets built on top of that abstraction is still open.
 - **Freight vs. passenger simulation depth**: not yet discussed.
 - **Seasonal demand variation**: not yet discussed.
 - **Day-to-day route operation mechanics**: timetabling, sailing frequency, capacity-to-demand matching — the actual UI/mechanical shape of "running a route properly" hasn't been discussed in detail yet.
-- **Pause & time controls**: a real-time game with 10–15-minute days needs an answer for stepping away — pause, and possibly fast-forward through quiet stretches. Interacts directly with the docking-notice mechanic (what happens if a notice fires while you're not looking — does the game pause, does the AI captain just take it?). Not yet discussed.
+- **Pause & time controls**: a real-time game with 10–15-minute days needs an answer for stepping away — pause, and possibly fast-forward through quiet stretches. Still open. The one piece that's ~~resolved~~ — **Phase 2, 2026-07-18:** no hard pause when a docking notice fires unattended; the automated captain resolves it normally after a short response window (`sim/captain.ts`'s risk roll, same as any other automated sailing). The broader pause/fast-forward question for quiet stretches between notices is still undiscussed.
 - **Audio**: entirely undiscussed. Flagging because docking feel is half sound (engine note under load, wind, gulls, the ramp clunk) — the roadmap notes a cheap placeholder pass as a Phase 1 stretch, but the actual audio direction is an open design area.
 - **Offline/idle progression mechanism** (stretch): catch-up simulation approach undecided.
 
