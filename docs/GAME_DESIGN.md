@@ -25,7 +25,7 @@ Not aiming for a GDP-accurate CalMac financial model — real subsidised ferry r
 
 - **Revenue**: fares, freight, and per-route subsidy for lifeline routes.
 - **Costs**: fuel, crew wages, maintenance, ship purchase/lease, repair/drydock.
-- Exact subsidy model (flat lifeline top-up vs. usage-scaling) is undecided.
+- ~~Exact subsidy model~~ — **Resolved (Phase 3, 2026-07-18):** flat top-up. The subsidy is a fixed daily payment per route (`sim/economy.ts`'s `subsidyPerDay`), landing regardless of whether the sailing happened — simple and predictable to balance costs against, rather than scaling with usage/passengers.
 
 ## Geography & hazard
 
@@ -77,7 +77,7 @@ Additional systems implied by gameplay, not yet modelled:
 - Crew (captains in particular) have an experience stat that offsets route risk.
 - Cheaper/less experienced crew cost less but raise risk — a real economic trade-off, not just flavour.
 - Automated captains handle routine sailings and will refuse a sailing that's a structural mismatch, teaching the risk system through friction rather than punishing a mistake the game let you make blindly.
-- How crew gain experience over time (sailings logged? training investment? both?) is undecided.
+- ~~How crew gain experience over time~~ — **Resolved (Phase 3, 2026-07-18):** sailings logged, not training investment. Experience climbs automatically and asymptotically from time on the job (`sim/crew.ts`'s `experienceOf`) — simplest to simulate, no separate training-spend mechanic needed yet. A paid-training lever remains a possible later addition, not built now.
 
 ## The player's own licence & manual ship-handling — the standout feature
 
@@ -97,7 +97,7 @@ This is the mechanic that differentiates Fleet Tycoon from a pure spreadsheet ty
 - **Mooring lines**: automated (AI dock crew) vs. a strategic layer the player also engages with. Explicitly parked — "don't need to worry about that now."
 - ~~**Manual-mode failure severity**~~ — **Resolved (Phase 2, 2026-07-18):** different, deliberately. Automated sailings resolve through the risk-roll odds/tiers in `sim/captain.ts` (hazard × weather × captain skill). Manual dockings instead resolve deterministically from the docking attempt's own physics — impact speed at contact (see `sim/dockingOutcome.ts`'s `SEVERE_IMPACT_SPEED` threshold) decides `damaged` vs. `severelyDamaged`, with no separate roll. A human reading the situation live gets to earn (or blow) the outcome directly, rather than have it re-randomized on top of their play.
 - **Licence progression gating**: skill-demonstrated (must actually dock competently to advance) vs. experience/hours-logged, or a mix?
-- **Subsidy model**: flat lifeline top-up per route, or something that scales with usage/passengers carried?
+- ~~**Subsidy model**~~ — **Resolved (Phase 3, 2026-07-18):** see Economy section above — flat top-up.
 - ~~**Rival operator**~~ — **Partially resolved (Phase 2, 2026-07-18):** contract loss is route-scoped and abstracted, not a simulated rival — losing the one route Phase 2 tracks just ends that contract ("re-tendered away"), no competing-operator simulation underneath it. Whether a fuller rival-operator layer ever gets built on top of that abstraction is still open.
 - **Freight vs. passenger simulation depth**: not yet discussed.
 - **Seasonal demand variation**: not yet discussed.

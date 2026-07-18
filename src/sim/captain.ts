@@ -22,8 +22,13 @@ export interface CaptainResolutionParams {
   /** How well-suited the ship is to this route/crossing, 0..1. Phase 2
    * hardcodes near-1 (the one ship suits the one route); Phase 4's hazard
    * zones + varied fleet make mismatches real ("tiny Loch class on the
-   * Minch" per docs/GAME_DESIGN.md). */
+   * Minch" per docs/GAME_DESIGN.md). This is a structural mismatch gate,
+   * not wear — see `shipCondition` below for the ship's own upkeep. */
   shipSuitability: number
+  /** The assigned ship's own condition, 0..1 (see sim/shipCondition.ts) —
+   * age and damage history, independent of whether she suits the route at
+   * all. A worn ship is a riskier ship even on a route she's built for. */
+  shipCondition: number
 }
 
 /** Below this suitability, the captain won't take her out at all — the
@@ -36,6 +41,11 @@ const REFUSE_SUITABILITY_THRESHOLD = 0.3
  * a skill-0 captain would; skill never fully eliminates risk. */
 const CAPTAIN_SKILL_MITIGATION = 0.7
 
+/** How much a wrecked ship (condition 0) raises risk versus a pristine one
+ * (condition 1, multiplier 1x — no change from Phase 2's behaviour). 1.0
+ * means a condition-0 ship faces double the raw risk. */
+const CONDITION_RISK_WEIGHT = 1.0
+
 /** Worst-case (risk=1) probability of each bad tier. These three must sum
  * to <= 1 — the remainder is onTime. At risk=1 here: 25% severe, 35%
  * damaged, 40% late, 0% onTime; at risk=0, 100% onTime. */
@@ -47,8 +57,9 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 /** Effective risk, 0..1, from raw danger tempered by crew competence. */
 export function effectiveRisk(params: CaptainResolutionParams): number {
-  const { hazard, weather, captainSkill } = params
-  return clamp(hazard * weather * (1 - CAPTAIN_SKILL_MITIGATION * captainSkill), 0, 1)
+  const { hazard, weather, captainSkill, shipCondition } = params
+  const conditionMultiplier = 1 + (1 - shipCondition) * CONDITION_RISK_WEIGHT
+  return clamp(hazard * weather * conditionMultiplier * (1 - CAPTAIN_SKILL_MITIGATION * captainSkill), 0, 1)
 }
 
 /**

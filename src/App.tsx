@@ -4,9 +4,10 @@ import { dockingConfig } from './game/dockingConfig'
 import { ShipBuilder } from './ship/ShipBuilder'
 import { FleetGallery } from './ship/FleetGallery'
 import { RouteOverview } from './ui/RouteOverview'
+import { CompanyOverview } from './ui/CompanyOverview'
 import './App.css'
 
-type View = 'shipyard' | 'fleet' | 'route' | 'docking'
+type View = 'shipyard' | 'fleet' | 'route' | 'company' | 'docking'
 
 function Docking() {
   return (
@@ -47,6 +48,13 @@ function App() {
           </button>
           <button
             type="button"
+            className={view === 'company' ? 'active' : ''}
+            onClick={() => setView('company')}
+          >
+            Company
+          </button>
+          <button
+            type="button"
             className={view === 'docking' ? 'active' : ''}
             onClick={() => setView('docking')}
           >
@@ -61,6 +69,8 @@ function App() {
           <FleetGallery />
         ) : view === 'route' ? (
           <RouteOverview />
+        ) : view === 'company' ? (
+          <CompanyOverview />
         ) : (
           <Docking />
         )}

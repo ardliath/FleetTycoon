@@ -3,26 +3,30 @@ import { PhaserGame } from '../PhaserGame'
 import { dockingConfig } from '../game/dockingConfig'
 import { EventBus } from '../game/EventBus'
 import type { DockingResult } from '../game/scenes/DockingScene'
+import { HERO_SHIPS } from '../ship/presets'
 import { advanceCalendar, dayProgress, forecastLabel, rollWeather, DAY_DURATION_MS } from '../sim/calendar'
 import { resolveAutomatedSailing } from '../sim/captain'
+import { dailyWage, experienceOf, recordSailing } from '../sim/crew'
 import { mapDockingResultToSailingOutcome } from '../sim/dockingOutcome'
+import { DEFAULT_DAILY_COSTS, DEFAULT_ROUTE_ECONOMICS, netForDay, shipPurchasePrice, type DailyCosts } from '../sim/economy'
 import { computeReliability, isContractLost, recordSailingOutcome, type SailingOutcome } from '../sim/reliability'
 import { createRng } from '../sim/rng'
 import { deriveSeed } from '../sim/seed'
+import { applyWear, drydockRepairCost, isInDrydock, needsDrydock, releaseIfDue, sendToDrydock } from '../sim/shipCondition'
 import { gameStateStore, newContractState, type ContractGameState } from '../storage/gameStateStore'
 import './routeOverview.css'
 
 /**
- * Phase 2's route/day loop: forecast -> (proactive cancel, or) the docking
- * notice -> manual takeover (Phase 1's DockingScene) or automated
- * resolution -> outcome recorded -> reliability updated -> next day.
+ * The route/day loop: forecast -> (proactive cancel, or) the docking notice
+ * -> manual takeover (Phase 1's DockingScene) or automated resolution ->
+ * outcome recorded -> reliability + economy + ship/crew updated -> next day.
  *
- * Fixed Phase 2 constants below (hazard/captainSkill/shipSuitability) are
- * hardcoded placeholders — Phase 3 makes captainSkill a real hireable stat,
- * Phase 4 makes hazard/shipSuitability route- and fleet-dependent.
+ * `ROUTE_HAZARD`/`SHIP_SUITABILITY` are still hardcoded — Phase 4's hazard
+ * zones + varied fleet are what make these route- and ship-dependent.
+ * Captain skill and ship condition, by contrast, now come from the actual
+ * assigned crew/ship (see CompanyOverview.tsx) rather than a flat constant.
  */
 const ROUTE_HAZARD = 0.4
-const CAPTAIN_SKILL = 0.5
 const SHIP_SUITABILITY = 1
 
 /** Day-progress fraction at which the notice fires. */
@@ -48,6 +52,10 @@ function loadOrCreateContract(): ContractGameState {
   return gameStateStore.load() ?? newContractState(Date.now())
 }
 
+function shipDesignFor(presetName: string) {
+  return HERO_SHIPS.find((s) => s.name === presetName)
+}
+
 export function RouteOverview() {
   const [contract, setContract] = useState<ContractGameState>(loadOrCreateContract)
   const [notice, setNotice] = useState<NoticeState>('none')
@@ -66,19 +74,61 @@ export function RouteOverview() {
   const weather = rollWeather(createRng(deriveSeed(contract.masterSeed, contract.calendar.day, 'weather')))
   const progress = dayProgress(contract.calendar)
 
+  const assignedShip = contract.fleet.find((s) => s.id === contract.assignedShipId) ?? null
+  const assignedCaptain = contract.crew.find((c) => c.id === contract.assignedCaptainId) ?? null
+  const assignedShipDesign = assignedShip ? shipDesignFor(assignedShip.presetName) : null
+  const shipUnavailable = !assignedShip || isInDrydock(assignedShip.condition, contract.calendar.day)
+
   const persist = useCallback((next: ContractGameState) => {
     setContract(next)
     gameStateStore.save(next)
   }, [])
 
-  const advanceToNextDay = useCallback(
-    (outcome: SailingOutcome) => {
+  /** The one place a day actually resolves: records the outcome, settles
+   * cash (fare/subsidy in, fuel/wages/maintenance out), wears the assigned
+   * ship (and sends her to drydock on a severe knock), releases any ship
+   * whose drydock stint has passed, and — for automated sailings only —
+   * logs the captain's experience. Manual takeovers don't log crew
+   * experience: the player did the docking, not the captain. */
+  const resolveSailingDay = useCallback(
+    (outcome: SailingOutcome, opts: { logCrewExperience: boolean }) => {
       const current = contractRef.current
       const history = recordSailingOutcome(current.history, outcome)
+      const nextDay = current.calendar.day + 1
+
+      const ship = current.fleet.find((s) => s.id === current.assignedShipId)
+      const captain = current.crew.find((c) => c.id === current.assignedCaptainId)
+
+      let cash = current.cash
+      let fleet = current.fleet
+
+      if (ship) {
+        let condition = applyWear(ship.condition, outcome)
+        if (needsDrydock(outcome)) {
+          const design = shipDesignFor(ship.presetName)
+          cash -= drydockRepairCost(shipPurchasePrice(design?.lengthM ?? 90))
+          condition = sendToDrydock(condition, current.calendar.day)
+        }
+        fleet = fleet.map((s) => (s.id === ship.id ? { ...s, condition } : s))
+      }
+      // any other ship whose drydock stint has passed comes back too
+      fleet = fleet.map((s) => ({ ...s, condition: releaseIfDue(s.condition, nextDay) }))
+
+      let crew = current.crew
+      if (opts.logCrewExperience && captain) {
+        crew = crew.map((c) => (c.id === captain.id ? recordSailing(c) : c))
+      }
+
+      const costs: DailyCosts = { ...DEFAULT_DAILY_COSTS, crewWagePerDay: captain ? dailyWage(captain.tier) : 0 }
+      cash += netForDay(outcome, DEFAULT_ROUTE_ECONOMICS, costs)
+
       const next: ContractGameState = {
         ...current,
         history,
-        calendar: { day: current.calendar.day + 1, msIntoDay: 0 },
+        calendar: { day: nextDay, msIntoDay: 0 },
+        cash,
+        fleet,
+        crew,
       }
       setLastOutcome(OUTCOME_LABEL[outcome])
       setNotice('none')
@@ -89,14 +139,22 @@ export function RouteOverview() {
 
   const resolveAutomatically = useCallback(() => {
     const current = contractRef.current
+    const ship = current.fleet.find((s) => s.id === current.assignedShipId)
+    const captain = current.crew.find((c) => c.id === current.assignedCaptainId)
     const rng = createRng(deriveSeed(current.masterSeed, current.calendar.day, 'captain'))
     const outcome = resolveAutomatedSailing(
-      { hazard: ROUTE_HAZARD, weather, captainSkill: CAPTAIN_SKILL, shipSuitability: SHIP_SUITABILITY },
+      {
+        hazard: ROUTE_HAZARD,
+        weather,
+        captainSkill: captain ? experienceOf(captain) : 0,
+        shipSuitability: SHIP_SUITABILITY,
+        shipCondition: ship ? ship.condition.score : 0,
+      },
       rng,
     )
-    advanceToNextDay(outcome)
+    resolveSailingDay(outcome, { logCrewExperience: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advanceToNextDay, weather])
+  }, [resolveSailingDay, weather])
 
   // the day clock — paused while docking or once the contract is lost
   useEffect(() => {
@@ -113,19 +171,27 @@ export function RouteOverview() {
 
       setContract((prev) => ({ ...prev, calendar: nextCalendar }))
 
+      const ship = current.fleet.find((s) => s.id === current.assignedShipId)
+      const unavailable = !ship || isInDrydock(ship.condition, current.calendar.day)
+
       if (noticeRef.current === 'none' && nextProgress >= NOTICE_AT) {
-        setNotice('shown')
+        if (unavailable) {
+          setNotice('resolved')
+          resolveSailingDay('cancelled', { logCrewExperience: false })
+        } else {
+          setNotice('shown')
+        }
       } else if (noticeRef.current === 'shown' && nextProgress >= AUTO_RESOLVE_AT) {
         setNotice('resolved')
         resolveAutomatically()
       }
     }, TICK_INTERVAL_MS)
     return () => clearInterval(id)
-  }, [dockingActive, lost, resolveAutomatically])
+  }, [dockingActive, lost, resolveAutomatically, resolveSailingDay])
 
   const handleCancelToday = () => {
     setNotice('resolved')
-    advanceToNextDay('cancelled')
+    resolveSailingDay('cancelled', { logCrewExperience: false })
   }
 
   const handleTakeControl = () => {
@@ -149,14 +215,14 @@ export function RouteOverview() {
       // readable for a moment before switching back to the overview.
       setTimeout(() => {
         setDockingActive(false)
-        advanceToNextDay(outcome)
+        resolveSailingDay(outcome, { logCrewExperience: false })
       }, 1800)
     }
     EventBus.on('docking-result', onResult)
     return () => {
       EventBus.off('docking-result', onResult)
     }
-  }, [dockingActive, advanceToNextDay])
+  }, [dockingActive, resolveSailingDay])
 
   if (lost) {
     return (
@@ -189,6 +255,10 @@ export function RouteOverview() {
           <span className="route-overview__value">{contract.calendar.day + 1}</span>
         </div>
         <div className="route-overview__stat-block">
+          <span className="route-overview__label">Cash</span>
+          <span className="route-overview__value">£{contract.cash.toLocaleString()}</span>
+        </div>
+        <div className="route-overview__stat-block">
           <span className="route-overview__label">Reliability</span>
           <span className="route-overview__value">{Math.round(reliability * 100)}%</span>
           <div className="route-overview__bar">
@@ -209,15 +279,27 @@ export function RouteOverview() {
         </div>
       </div>
 
+      <p className="route-overview__last-outcome">
+        {assignedShipDesign ? assignedShipDesign.name : 'No ship assigned'}
+        {assignedCaptain ? ` · ${assignedCaptain.name} (${Math.round(experienceOf(assignedCaptain) * 100)}% exp.)` : ''}
+        {shipUnavailable && assignedShip
+          ? ` · in drydock until day ${(assignedShip.condition.drydockUntilDay ?? 0) + 1}`
+          : ''}
+      </p>
+
       <div className="route-overview__day-progress">
         <div className="route-overview__day-progress-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
       </div>
 
       {lastOutcome && <p className="route-overview__last-outcome">Yesterday: {lastOutcome}</p>}
 
-      {notice === 'shown' ? (
+      {shipUnavailable ? (
+        <p className="route-overview__last-outcome">
+          {assignedShip ? "She's in drydock — today's sailing is automatically cancelled." : 'Assign a ship on the Company tab to sail this route.'}
+        </p>
+      ) : notice === 'shown' ? (
         <div className="route-overview__notice">
-          <p>Isle of Arran is approaching the berth.</p>
+          <p>{assignedShipDesign?.name ?? 'The ship'} is approaching the berth.</p>
           <div className="route-overview__notice-actions">
             <button type="button" onClick={handleTakeControl}>
               Take the helm

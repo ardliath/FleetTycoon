@@ -24,6 +24,15 @@ describe('newContractState', () => {
     expect(state.calendar).toEqual({ day: 0, msIntoDay: 0 })
     expect(state.history).toEqual([])
   })
+
+  it('starts with one ship and one captain, both assigned, and starting cash', () => {
+    const state = newContractState(42)
+    expect(state.fleet).toHaveLength(1)
+    expect(state.crew).toHaveLength(1)
+    expect(state.assignedShipId).toBe(state.fleet[0].id)
+    expect(state.assignedCaptainId).toBe(state.crew[0].id)
+    expect(state.cash).toBeGreaterThan(0)
+  })
 })
 
 describe('LocalStorageGameStateStore', () => {
@@ -34,13 +43,25 @@ describe('LocalStorageGameStateStore', () => {
 
   it('round-trips a saved state exactly', () => {
     const store = new LocalStorageGameStateStore(fakeStorage())
-    const state: ContractGameState = {
-      masterSeed: 7,
-      calendar: { day: 3, msIntoDay: 12000 },
-      history: ['onTime', 'late', 'cancelled'],
-    }
+    const state: ContractGameState = newContractState(7)
     store.save(state)
     expect(store.load()).toEqual(state)
+  })
+
+  it('loads a pre-Phase-3 save missing fleet/crew/cash by defaulting them, without losing history', () => {
+    const store = new LocalStorageGameStateStore(fakeStorage())
+    const phase2Shape = {
+      masterSeed: 7,
+      calendar: { day: 3, msIntoDay: 12000 },
+      history: ['onTime', 'late', 'cancelled'] as ContractGameState['history'],
+    }
+    store.save(phase2Shape as ContractGameState)
+    const loaded = store.load()
+    expect(loaded?.history).toEqual(phase2Shape.history)
+    expect(loaded?.calendar).toEqual(phase2Shape.calendar)
+    expect(loaded?.fleet).toHaveLength(1)
+    expect(loaded?.crew).toHaveLength(1)
+    expect(loaded?.cash).toBeGreaterThan(0)
   })
 
   it('clear() removes the saved state', () => {

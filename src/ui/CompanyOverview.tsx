@@ -1,0 +1,183 @@
+import { useState } from 'react'
+import { HERO_SHIPS } from '../ship/presets'
+import { canAfford, shipPurchasePrice } from '../sim/economy'
+import { dailyWage, experienceOf, hireCost, newCaptain, type Captain, type CaptainTier } from '../sim/crew'
+import { applyMaintenance, isInDrydock, newShipCondition } from '../sim/shipCondition'
+import { gameStateStore, newContractState, type ContractGameState, type OwnedShip } from '../storage/gameStateStore'
+import './companyOverview.css'
+
+/** Fixed maintenance spend per click — a simple lever rather than a free-
+ * entry amount, matching the tier-based hiring UI below. Untuned. */
+const MAINTENANCE_SPEND = 500
+
+const TIERS: CaptainTier[] = ['green', 'seasoned', 'veteran']
+
+function loadOrCreateContract(): ContractGameState {
+  return gameStateStore.load() ?? newContractState(Date.now())
+}
+
+function shipDesignFor(presetName: string) {
+  return HERO_SHIPS.find((s) => s.name === presetName)
+}
+
+export function CompanyOverview() {
+  const [contract, setContract] = useState<ContractGameState>(loadOrCreateContract)
+
+  const persist = (next: ContractGameState) => {
+    setContract(next)
+    gameStateStore.save(next)
+  }
+
+  const buyShip = (presetName: string) => {
+    const design = shipDesignFor(presetName)
+    if (!design) return
+    const price = shipPurchasePrice(design.lengthM)
+    if (!canAfford(contract.cash, price)) return
+    const ship: OwnedShip = {
+      id: `ship-${Date.now()}`,
+      presetName,
+      condition: newShipCondition(),
+    }
+    persist({ ...contract, cash: contract.cash - price, fleet: [...contract.fleet, ship] })
+  }
+
+  const hireCaptain = (tier: CaptainTier) => {
+    const cost = hireCost(tier)
+    if (!canAfford(contract.cash, cost)) return
+    const captain = newCaptain(`captain-${Date.now()}`, `Captain #${contract.crew.length + 1}`, tier)
+    persist({ ...contract, cash: contract.cash - cost, crew: [...contract.crew, captain] })
+  }
+
+  const assignShip = (id: string) => {
+    persist({ ...contract, assignedShipId: id })
+  }
+
+  const assignCaptain = (id: string) => {
+    persist({ ...contract, assignedCaptainId: id })
+  }
+
+  const payMaintenance = (shipId: string) => {
+    if (!canAfford(contract.cash, MAINTENANCE_SPEND)) return
+    const fleet = contract.fleet.map((ship) =>
+      ship.id === shipId ? { ...ship, condition: applyMaintenance(ship.condition, MAINTENANCE_SPEND) } : ship,
+    )
+    persist({ ...contract, cash: contract.cash - MAINTENANCE_SPEND, fleet })
+  }
+
+  const currentDay = contract.calendar.day
+
+  return (
+    <div className="company-overview">
+      <div className="company-overview__cash">
+        <span className="company-overview__label">Cash</span>
+        <span className="company-overview__value">£{contract.cash.toLocaleString()}</span>
+      </div>
+
+      <section>
+        <h2>Fleet</h2>
+        <ul className="company-overview__list">
+          {contract.fleet.map((ship) => {
+            const design = shipDesignFor(ship.presetName)
+            const drydocked = isInDrydock(ship.condition, currentDay)
+            const assigned = ship.id === contract.assignedShipId
+            return (
+              <li key={ship.id} className="company-overview__row">
+                <div className="company-overview__row-main">
+                  <span className="company-overview__row-name">{design?.name ?? ship.presetName}</span>
+                  <span className="company-overview__row-detail">
+                    Condition {Math.round(ship.condition.score * 100)}%
+                    {drydocked && ` · in drydock until day ${(ship.condition.drydockUntilDay ?? 0) + 1}`}
+                  </span>
+                </div>
+                <div className="company-overview__row-actions">
+                  <button
+                    type="button"
+                    disabled={drydocked || ship.condition.score >= 1}
+                    onClick={() => payMaintenance(ship.id)}
+                  >
+                    Maintain (£{MAINTENANCE_SPEND})
+                  </button>
+                  <button
+                    type="button"
+                    disabled={assigned || drydocked}
+                    className={assigned ? 'company-overview__assigned' : ''}
+                    onClick={() => assignShip(ship.id)}
+                  >
+                    {assigned ? 'On the route' : 'Assign to route'}
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+
+        <h3>Buy a ship</h3>
+        <ul className="company-overview__list">
+          {HERO_SHIPS.map((design) => {
+            const price = shipPurchasePrice(design.lengthM)
+            return (
+              <li key={design.name} className="company-overview__row">
+                <div className="company-overview__row-main">
+                  <span className="company-overview__row-name">{design.name}</span>
+                  <span className="company-overview__row-detail">{design.lengthM}m</span>
+                </div>
+                <div className="company-overview__row-actions">
+                  <button type="button" disabled={!canAfford(contract.cash, price)} onClick={() => buyShip(design.name)}>
+                    Buy — £{price.toLocaleString()}
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Crew</h2>
+        <ul className="company-overview__list">
+          {contract.crew.map((captain: Captain) => {
+            const assigned = captain.id === contract.assignedCaptainId
+            return (
+              <li key={captain.id} className="company-overview__row">
+                <div className="company-overview__row-main">
+                  <span className="company-overview__row-name">{captain.name}</span>
+                  <span className="company-overview__row-detail">
+                    {captain.tier} · {Math.round(experienceOf(captain) * 100)}% experience · £
+                    {dailyWage(captain.tier)}/day
+                  </span>
+                </div>
+                <div className="company-overview__row-actions">
+                  <button
+                    type="button"
+                    disabled={assigned}
+                    className={assigned ? 'company-overview__assigned' : ''}
+                    onClick={() => assignCaptain(captain.id)}
+                  >
+                    {assigned ? 'On the route' : 'Assign to route'}
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+
+        <h3>Hire crew</h3>
+        <ul className="company-overview__list">
+          {TIERS.map((tier) => (
+            <li key={tier} className="company-overview__row">
+              <div className="company-overview__row-main">
+                <span className="company-overview__row-name">{tier}</span>
+                <span className="company-overview__row-detail">£{dailyWage(tier)}/day wage</span>
+              </div>
+              <div className="company-overview__row-actions">
+                <button type="button" disabled={!canAfford(contract.cash, hireCost(tier))} onClick={() => hireCaptain(tier)}>
+                  Hire — £{hireCost(tier).toLocaleString()}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  )
+}

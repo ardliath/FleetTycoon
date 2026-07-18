@@ -1,15 +1,35 @@
+import { HERO_SHIPS } from '../ship/presets'
 import type { CalendarState } from '../sim/calendar'
+import { newCaptain, type Captain } from '../sim/crew'
 import type { SailingOutcome } from '../sim/reliability'
+import { newShipCondition, type ShipCondition } from '../sim/shipCondition'
+
+/** A ship the player owns — a reference to a hero preset (by name, so
+ * reordering `HERO_SHIPS` doesn't break a save) plus her own condition. */
+export interface OwnedShip {
+  id: string
+  presetName: string
+  condition: ShipCondition
+}
 
 /**
- * Persisted shape of the one-route contract Phase 2 tracks. `masterSeed`
- * plus `sim/seed.ts`'s per-(day, purpose) derivation is what makes this
+ * Persisted shape of the one-route contract. `masterSeed` plus
+ * `sim/seed.ts`'s per-(day, purpose) derivation is what makes this
  * reload-safe without needing to persist RNG position — see seed.ts.
+ *
+ * `cash`/`fleet`/`crew`/`assignedShipId`/`assignedCaptainId` are Phase 3
+ * additions — `load()` below defaults them for any save written before
+ * Phase 3 existed, so an in-progress Phase 2 save isn't lost.
  */
 export interface ContractGameState {
   masterSeed: number
   calendar: CalendarState
   history: SailingOutcome[]
+  cash: number
+  fleet: OwnedShip[]
+  crew: Captain[]
+  assignedShipId: string | null
+  assignedCaptainId: string | null
 }
 
 /** Persistence boundary for company/contract state — same swappable-
@@ -39,7 +59,12 @@ export class LocalStorageGameStateStore implements GameStateStore {
   load(): ContractGameState | null {
     try {
       const raw = this.backend.getItem(CONTRACT_KEY)
-      return raw ? (JSON.parse(raw) as ContractGameState) : null
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as Partial<ContractGameState> &
+        Pick<ContractGameState, 'masterSeed' | 'calendar' | 'history'>
+      // merge over defaults so a pre-Phase-3 save (missing the fleet/crew/
+      // cash fields) loads instead of silently losing progress.
+      return { ...newContractState(parsed.masterSeed), ...parsed }
     } catch {
       return null
     }
@@ -64,14 +89,33 @@ export class LocalStorageGameStateStore implements GameStateStore {
 
 export const gameStateStore: GameStateStore = new LocalStorageGameStateStore()
 
+/** Starting cash for a brand-new contract — enough to run the one route for
+ * a while before a second ship is realistic. Untuned. */
+const STARTING_CASH = 5000
+
 /** A fresh contract state for a brand-new session, seeded from a
  * caller-supplied number (so callers — and tests — control reproducibility;
  * sim/ purity rules mean this file, being outside sim/, is the right place
- * to make the one Date.now()-flavoured choice of "what seed to start with"). */
+ * to make the one Date.now()-flavoured choice of "what seed to start with").
+ *
+ * Starts with the one ship/captain Phase 1/2 already assumed (Isle of
+ * Arran, a seasoned captain) so a new game is immediately playable rather
+ * than opening on an empty fleet. */
 export function newContractState(masterSeed: number): ContractGameState {
+  const startingShip: OwnedShip = {
+    id: 'ship-1',
+    presetName: HERO_SHIPS[0].name,
+    condition: newShipCondition(),
+  }
+  const startingCaptain: Captain = newCaptain('captain-1', 'Captain MacKay', 'seasoned')
   return {
     masterSeed,
     calendar: { day: 0, msIntoDay: 0 },
     history: [],
+    cash: STARTING_CASH,
+    fleet: [startingShip],
+    crew: [startingCaptain],
+    assignedShipId: startingShip.id,
+    assignedCaptainId: startingCaptain.id,
   }
 }

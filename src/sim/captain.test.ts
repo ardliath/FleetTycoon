@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { createRng } from './rng'
 import { effectiveRisk, resolveAutomatedSailing, type CaptainResolutionParams } from './captain'
 
-const base: CaptainResolutionParams = { hazard: 0.5, weather: 0.5, captainSkill: 0.5, shipSuitability: 1 }
+const base: CaptainResolutionParams = {
+  hazard: 0.5,
+  weather: 0.5,
+  captainSkill: 0.5,
+  shipSuitability: 1,
+  shipCondition: 1,
+}
 
 describe('effectiveRisk', () => {
   it('is 0 when hazard is 0, regardless of weather', () => {
@@ -32,17 +38,33 @@ describe('effectiveRisk', () => {
   })
 
   it('even a perfect captain does not fully eliminate risk from real hazard+weather', () => {
-    const risk = effectiveRisk({ hazard: 1, weather: 1, captainSkill: 1, shipSuitability: 1 })
+    const risk = effectiveRisk({ hazard: 1, weather: 1, captainSkill: 1, shipSuitability: 1, shipCondition: 1 })
     expect(risk).toBeGreaterThan(0)
+  })
+
+  it('rises as ship condition falls, all else equal', () => {
+    const pristine = effectiveRisk({ ...base, shipCondition: 1 })
+    const worn = effectiveRisk({ ...base, shipCondition: 0.2 })
+    expect(worn).toBeGreaterThan(pristine)
+  })
+
+  it('a pristine ship (condition 1) behaves exactly as Phase 2 did — no change from that baseline', () => {
+    const risk = effectiveRisk({ ...base, shipCondition: 1 })
+    // Phase 2's formula, before shipCondition existed
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+    const phase2 = clamp(base.hazard * base.weather * (1 - 0.7 * base.captainSkill), 0, 1)
+    expect(risk).toBeCloseTo(phase2, 10)
   })
 
   it('is bounded to [0, 1]', () => {
     for (const hazard of [0, 0.5, 1]) {
       for (const weather of [0, 0.5, 1]) {
         for (const captainSkill of [0, 0.5, 1]) {
-          const r = effectiveRisk({ hazard, weather, captainSkill, shipSuitability: 1 })
-          expect(r).toBeGreaterThanOrEqual(0)
-          expect(r).toBeLessThanOrEqual(1)
+          for (const shipCondition of [0, 0.5, 1]) {
+            const r = effectiveRisk({ hazard, weather, captainSkill, shipSuitability: 1, shipCondition })
+            expect(r).toBeGreaterThanOrEqual(0)
+            expect(r).toBeLessThanOrEqual(1)
+          }
         }
       }
     }
@@ -85,14 +107,26 @@ describe('resolveAutomatedSailing — refuse-to-sail gate', () => {
 
 describe('resolveAutomatedSailing — boundary behaviour', () => {
   it('zero risk (calm weather, no hazard) is always onTime', () => {
-    const params: CaptainResolutionParams = { hazard: 0, weather: 0, captainSkill: 0, shipSuitability: 1 }
+    const params: CaptainResolutionParams = {
+      hazard: 0,
+      weather: 0,
+      captainSkill: 0,
+      shipSuitability: 1,
+      shipCondition: 1,
+    }
     for (let seed = 0; seed < 50; seed++) {
       expect(resolveAutomatedSailing(params, createRng(seed))).toBe('onTime')
     }
   })
 
   it('maximum risk never resolves onTime', () => {
-    const params: CaptainResolutionParams = { hazard: 1, weather: 1, captainSkill: 0, shipSuitability: 1 }
+    const params: CaptainResolutionParams = {
+      hazard: 1,
+      weather: 1,
+      captainSkill: 0,
+      shipSuitability: 1,
+      shipCondition: 1,
+    }
     for (let seed = 0; seed < 50; seed++) {
       expect(resolveAutomatedSailing(params, createRng(seed))).not.toBe('onTime')
     }
@@ -101,7 +135,13 @@ describe('resolveAutomatedSailing — boundary behaviour', () => {
 
 describe('resolveAutomatedSailing — outcome distribution matches the tier design', () => {
   it('at maximum risk, roughly matches the designed 25/35/40 severe/damaged/late split', () => {
-    const params: CaptainResolutionParams = { hazard: 1, weather: 1, captainSkill: 0, shipSuitability: 1 }
+    const params: CaptainResolutionParams = {
+      hazard: 1,
+      weather: 1,
+      captainSkill: 0,
+      shipSuitability: 1,
+      shipCondition: 1,
+    }
     const rng = createRng(2024)
     const counts = { onTime: 0, late: 0, damaged: 0, severelyDamaged: 0, cancelled: 0 }
     const N = 20000
@@ -113,7 +153,13 @@ describe('resolveAutomatedSailing — outcome distribution matches the tier desi
   })
 
   it('a skilled captain in easy conditions overwhelmingly sails onTime', () => {
-    const params: CaptainResolutionParams = { hazard: 0.3, weather: 0.2, captainSkill: 0.9, shipSuitability: 1 }
+    const params: CaptainResolutionParams = {
+      hazard: 0.3,
+      weather: 0.2,
+      captainSkill: 0.9,
+      shipSuitability: 1,
+      shipCondition: 1,
+    }
     const rng = createRng(99)
     let onTime = 0
     const N = 5000

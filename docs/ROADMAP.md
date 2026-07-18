@@ -204,6 +204,16 @@ Notes for later phases:
 
 **Exit criteria**: there's a real reason to spend more on crew and maintenance than the minimum, provable by the balance-sanity tests, not just vibes.
 
+**Done (2026-07-18).** All scope items landed: `sim/economy.ts` (fares/subsidy revenue, fuel/wages/maintenance costs, ship purchase pricing — flat per-route subsidy per the confirmed design answer), `sim/crew.ts` (three hireable tiers — green/seasoned/veteran — whose experience climbs asymptotically from sailings logged, per the confirmed design answer, feeding `captain.ts`'s `captainSkill`), `sim/shipCondition.ts` (wear-per-sailing condition score, a severe knock triggers `sendToDrydock`/`needsDrydock` — 4 days unavailable plus an automatically-charged repair cost — and `releaseIfDue` brings her back at full condition), and `captain.ts`'s `effectiveRisk` extended with a `shipCondition` factor (a worn ship is a riskier ship, independent of route suitability). `storage/gameStateStore.ts`'s `ContractGameState` grew `cash`/`fleet`/`crew`/`assignedShipId`/`assignedCaptainId`, with `load()` defaulting them for any pre-Phase-3 save so nothing in progress was lost. A new "Company" tab (`ui/CompanyOverview.tsx`) handles ship purchase/assignment, crew hiring/assignment, and maintenance spend; `ui/RouteOverview.tsx` now resolves sailings against the actually-assigned ship/captain instead of flat constants, settles cash every day, and auto-cancels (with a status message, no notice) while the assigned ship is in drydock. 153 tests passing across 20 files, including `sim/balance.test.ts` — the phase's actual exit criterion — proving a green captain on a badly-worn ship incidents at over 5x the rate of a veteran on a near-new one.
+
+Exit criteria proven two ways: the balance-sanity tests directly (`balance.test.ts`), and live in-browser — hiring a green captain and watching her experience visibly climb sailing over sailing; buying/maintaining ships correctly gating on `canAfford`; and, most tellingly, a ship forced into drydock (condition set low, `drydockUntilDay` set forward) auto-cancelled every day of her stint, which alone dragged reliability under the loss threshold and produced the contract-lost screen — the repair bill and the reliability hit compounding exactly as intended, not just in theory.
+
+Notes for later phases:
+- `ROUTE_HAZARD` and `SHIP_SUITABILITY` are still hardcoded in `RouteOverview.tsx` — Phase 4's hazard zones and varied fleet are what make these route- and ship-dependent for real.
+- Crew and ship purchase/hire have no name-entry UI — captains are auto-named `Captain #N`; fine for now, worth revisiting if it stays feeling flat.
+- `DAY_DURATION_MS` (45s) and the Phase 1 tick size remain untuned build-time placeholders — unchanged from prior phases' notes.
+- Phase 1's own fun/feel exit criterion is *still* unconfirmed, three phases deep now. Genuinely worth returning to before Phase 4 adds a second route on top of docking physics nobody's confirmed feels good yet.
+
 ---
 
 ## Phase 4 — Map & multiple routes
