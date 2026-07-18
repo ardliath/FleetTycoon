@@ -1,0 +1,52 @@
+.map-view {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.map-view__svg {
+  width: 100%;
+  height: auto;
+  background: #c9dce8;
+  border-radius: 10px;
+}
+
+.map-view__hazard {
+  fill: #c0503f;
+  stroke: none;
+}
+
+.map-view__route {
+  stroke: var(--border);
+  stroke-width: 0.35;
+  stroke-dasharray: 1.2 0.8;
+}
+
+.map-view__route--active {
+  stroke: var(--accent);
+  stroke-width: 0.5;
+  stroke-dasharray: none;
+}
+
+.map-view__port-dot {
+  fill: #151a21;
+  stroke: #fff;
+  stroke-width: 0.2;
+}
+
+.map-view__port-label {
+  font-size: 1.8px;
+  fill: #151a21;
+  dominant-baseline: middle;
+}
+
+.map-view__note {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0;
+}

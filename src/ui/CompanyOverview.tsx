@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { findClydeRoute } from '../map/clyde'
 import { HERO_SHIPS } from '../ship/presets'
 import { canAfford, shipPurchasePrice } from '../sim/economy'
 import { dailyWage, experienceOf, hireCost, newCaptain, type Captain, type CaptainTier } from '../sim/crew'
@@ -48,12 +49,24 @@ export function CompanyOverview() {
     persist({ ...contract, cash: contract.cash - cost, crew: [...contract.crew, captain] })
   }
 
-  const assignShip = (id: string) => {
-    persist({ ...contract, assignedShipId: id })
+  /** A ship/captain serves one route at a time — assigning to a new route
+   * automatically frees it from wherever it was previously assigned. */
+  const assignShipToRoute = (shipId: string, routeId: string | null) => {
+    const routes = contract.routes.map((r) => {
+      if (r.routeId === routeId) return { ...r, assignedShipId: shipId }
+      if (r.assignedShipId === shipId) return { ...r, assignedShipId: null }
+      return r
+    })
+    persist({ ...contract, routes })
   }
 
-  const assignCaptain = (id: string) => {
-    persist({ ...contract, assignedCaptainId: id })
+  const assignCaptainToRoute = (captainId: string, routeId: string | null) => {
+    const routes = contract.routes.map((r) => {
+      if (r.routeId === routeId) return { ...r, assignedCaptainId: captainId }
+      if (r.assignedCaptainId === captainId) return { ...r, assignedCaptainId: null }
+      return r
+    })
+    persist({ ...contract, routes })
   }
 
   const payMaintenance = (shipId: string) => {
@@ -79,7 +92,7 @@ export function CompanyOverview() {
           {contract.fleet.map((ship) => {
             const design = shipDesignFor(ship.presetName)
             const drydocked = isInDrydock(ship.condition, currentDay)
-            const assigned = ship.id === contract.assignedShipId
+            const assignedRoute = contract.routes.find((r) => r.assignedShipId === ship.id) ?? null
             return (
               <li key={ship.id} className="company-overview__row">
                 <div className="company-overview__row-main">
@@ -97,14 +110,18 @@ export function CompanyOverview() {
                   >
                     Maintain (£{MAINTENANCE_SPEND})
                   </button>
-                  <button
-                    type="button"
-                    disabled={assigned || drydocked}
-                    className={assigned ? 'company-overview__assigned' : ''}
-                    onClick={() => assignShip(ship.id)}
+                  <select
+                    disabled={drydocked}
+                    value={assignedRoute?.routeId ?? ''}
+                    onChange={(e) => assignShipToRoute(ship.id, e.target.value || null)}
                   >
-                    {assigned ? 'On the route' : 'Assign to route'}
-                  </button>
+                    <option value="">Unassigned</option>
+                    {contract.routes.map((r) => (
+                      <option key={r.routeId} value={r.routeId}>
+                        {findClydeRoute(r.routeId)?.name ?? r.routeId}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </li>
             )
@@ -136,7 +153,7 @@ export function CompanyOverview() {
         <h2>Crew</h2>
         <ul className="company-overview__list">
           {contract.crew.map((captain: Captain) => {
-            const assigned = captain.id === contract.assignedCaptainId
+            const assignedRoute = contract.routes.find((r) => r.assignedCaptainId === captain.id) ?? null
             return (
               <li key={captain.id} className="company-overview__row">
                 <div className="company-overview__row-main">
@@ -147,14 +164,17 @@ export function CompanyOverview() {
                   </span>
                 </div>
                 <div className="company-overview__row-actions">
-                  <button
-                    type="button"
-                    disabled={assigned}
-                    className={assigned ? 'company-overview__assigned' : ''}
-                    onClick={() => assignCaptain(captain.id)}
+                  <select
+                    value={assignedRoute?.routeId ?? ''}
+                    onChange={(e) => assignCaptainToRoute(captain.id, e.target.value || null)}
                   >
-                    {assigned ? 'On the route' : 'Assign to route'}
-                  </button>
+                    <option value="">Unassigned</option>
+                    {contract.routes.map((r) => (
+                      <option key={r.routeId} value={r.routeId}>
+                        {findClydeRoute(r.routeId)?.name ?? r.routeId}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </li>
             )

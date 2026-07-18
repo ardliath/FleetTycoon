@@ -3,11 +3,12 @@ import { PhaserGame } from './PhaserGame'
 import { dockingConfig } from './game/dockingConfig'
 import { ShipBuilder } from './ship/ShipBuilder'
 import { FleetGallery } from './ship/FleetGallery'
-import { RouteOverview } from './ui/RouteOverview'
+import { RoutesOverview } from './ui/RoutesOverview'
 import { CompanyOverview } from './ui/CompanyOverview'
+import { MapView } from './ui/MapView'
 import './App.css'
 
-type View = 'shipyard' | 'fleet' | 'route' | 'company' | 'docking'
+type View = 'shipyard' | 'fleet' | 'map' | 'route' | 'company' | 'docking'
 
 function Docking() {
   return (
@@ -41,10 +42,17 @@ function App() {
           </button>
           <button
             type="button"
+            className={view === 'map' ? 'active' : ''}
+            onClick={() => setView('map')}
+          >
+            Map
+          </button>
+          <button
+            type="button"
             className={view === 'route' ? 'active' : ''}
             onClick={() => setView('route')}
           >
-            Route
+            Routes
           </button>
           <button
             type="button"
@@ -67,8 +75,10 @@ function App() {
           <ShipBuilder />
         ) : view === 'fleet' ? (
           <FleetGallery />
+        ) : view === 'map' ? (
+          <MapView />
         ) : view === 'route' ? (
-          <RouteOverview />
+          <RoutesOverview />
         ) : view === 'company' ? (
           <CompanyOverview />
         ) : (
