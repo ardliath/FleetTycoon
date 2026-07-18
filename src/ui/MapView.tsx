@@ -3,7 +3,7 @@ import { routePoints, shipDesignFor } from '../game/routeHelpers'
 import { ARRIVE_AT, DEPART_AT } from '../game/routeTiming'
 import { CLYDE_HAZARD_ZONES, CLYDE_PORTS, CLYDE_ROUTES, findClydePort } from '../map/clyde'
 import { CLYDE_COASTLINE } from '../map/clydeCoastline'
-import { CLYDE_SOUNDINGS } from '../map/clydeSoundings'
+import { CLYDE_DEPTH_CONTOURS } from '../map/clydeDepthContours'
 import { dayProgress } from '../sim/calendar'
 import {
   crossingFraction,
@@ -29,8 +29,9 @@ import './mapView.css'
  * (clipped by the data's query box) get closed into real polygons rather
  * than left as open linework.
  *
- * Depth soundings (src/map/clydeSoundings.ts) are real point queries
- * against EMODnet Bathymetry's depth grid, not decoration.
+ * Depth contours (src/map/clydeDepthContours.ts) are real isobaths —
+ * marching squares run over an EMODnet Bathymetry raster grid, not
+ * decoration and not point soundings.
  */
 
 const PADDING_KM = 24
@@ -141,13 +142,18 @@ export function MapView() {
           )
         })}
 
-        {/* depth soundings — real EMODnet point queries, see clydeSoundings.ts */}
-        {CLYDE_SOUNDINGS.map((s, i) => {
-          const p = toSvg(s)
+        {/* depth contours — real isobaths, see clydeDepthContours.ts */}
+        {CLYDE_DEPTH_CONTOURS.map((contour, i) => {
+          const svgPts = contour.points.map(toSvg)
+          const d = svgPts.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+          const labelAt = svgPts[Math.floor(svgPts.length * 0.4)]
           return (
-            <text key={i} x={p.x} y={p.y} className="map-view__sounding">
-              {s.depthM}
-            </text>
+            <g key={i}>
+              <path d={d} className={`map-view__contour map-view__contour--${contour.depthM}`} />
+              <text x={labelAt.x} y={labelAt.y} className="map-view__contour-label">
+                {contour.depthM}
+              </text>
+            </g>
           )
         })}
 
@@ -265,14 +271,14 @@ export function MapView() {
       <p className="map-view__note">
         Solid lines are active routes; faint lines are proposable but not yet started. Ship marks show today's
         assigned crossings live. The shaded patch is the outer Firth's mild chop — this pilot deliberately has
-        nothing like the Hebridean hazards still to come. Depth figures are real soundings in metres.
+        nothing like the Hebridean hazards still to come. Depth contours are real isobaths in metres.
       </p>
       <p className="map-view__attribution">
         Coastline data &copy;{' '}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           OpenStreetMap
         </a>{' '}
-        contributors, ODbL. Depth data &copy;{' '}
+        contributors, ODbL. Depth contours derived from &copy;{' '}
         <a href="https://emodnet.ec.europa.eu/" target="_blank" rel="noreferrer">
           EMODnet Bathymetry
         </a>

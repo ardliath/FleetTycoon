@@ -35,11 +35,33 @@
   opacity: 0.75;
 }
 
-.map-view__sounding {
+.map-view__contour {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 0.12;
+}
+
+.map-view__contour--20 {
+  opacity: 0.55;
+}
+
+.map-view__contour--50 {
+  opacity: 0.42;
+}
+
+.map-view__contour--100 {
+  opacity: 0.3;
+}
+
+.map-view__contour--150 {
+  opacity: 0.2;
+}
+
+.map-view__contour-label {
   font-family: var(--mono);
-  font-size: 1.6px;
+  font-size: 1.4px;
   fill: var(--text);
-  opacity: 0.4;
+  opacity: 0.55;
   text-anchor: middle;
 }
 
