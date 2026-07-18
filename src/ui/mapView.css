@@ -23,12 +23,6 @@
   stroke-width: 0.15;
 }
 
-.map-view__coast-line {
-  fill: none;
-  stroke: var(--land-border);
-  stroke-width: 0.15;
-}
-
 .map-view__graticule {
   stroke: var(--border);
   stroke-width: 0.08;

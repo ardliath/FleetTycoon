@@ -2,7 +2,7 @@ import { useGame } from '../game/GameContext'
 import { routePoints, shipDesignFor } from '../game/routeHelpers'
 import { ARRIVE_AT, DEPART_AT } from '../game/routeTiming'
 import { CLYDE_HAZARD_ZONES, CLYDE_PORTS, CLYDE_ROUTES, findClydePort } from '../map/clyde'
-import { CLYDE_COASTLINE_CLOSED, CLYDE_COASTLINE_OPEN } from '../map/clydeCoastline'
+import { CLYDE_COASTLINE } from '../map/clydeCoastline'
 import { dayProgress } from '../sim/calendar'
 import {
   crossingFraction,
@@ -26,10 +26,10 @@ import './mapView.css'
  * texture, not real bathymetry (no such dataset exists for this game).
  *
  * Land shapes (src/map/clydeCoastline.ts) are real OpenStreetMap
- * coastline data, simplified — not hand-drawn. Islands fully inside the
- * data's bounding box (Arran, Bute, the Cumbraes) render filled; mainland
- * coast clipped by that box renders as stroke-only linework, honestly,
- * rather than faked closed with an invented fill.
+ * coastline data, simplified — not hand-drawn. Islands and mainland both
+ * render filled; see that file's own comment for how mainland pieces
+ * (clipped by the data's query box) get closed into real polygons rather
+ * than left as open linework.
  */
 
 const PADDING_KM = 24
@@ -115,21 +115,18 @@ export function MapView() {
   const cartoucheWidth = 20
   const cartoucheHeight = 15
 
-  const ringPath = (ring: Point[], closed: boolean) => {
+  const ringPath = (ring: Point[]) => {
     const svgPts = ring.map(toSvg)
     const d = svgPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-    return closed ? `${d} Z` : d
+    return `${d} Z`
   }
 
   return (
     <div className="map-view">
       <svg viewBox={`0 0 ${width} ${height}`} className="map-view__svg" role="img" aria-label="Clyde pilot chart">
         {/* coastline — real OpenStreetMap geometry, see clydeCoastline.ts */}
-        {CLYDE_COASTLINE_CLOSED.map((ring, i) => (
-          <path key={`land-${i}`} d={ringPath(ring, true)} className="map-view__land" />
-        ))}
-        {CLYDE_COASTLINE_OPEN.map((chain, i) => (
-          <path key={`coast-${i}`} d={ringPath(chain, false)} className="map-view__coast-line" />
+        {CLYDE_COASTLINE.map((ring, i) => (
+          <path key={`land-${i}`} d={ringPath(ring)} className="map-view__land" />
         ))}
 
         {/* latitude (horizontal) lines */}
