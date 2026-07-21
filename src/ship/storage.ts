@@ -108,6 +108,7 @@ function writeJson(key: string, value: unknown): void {
  * value and no optional field is set, so nothing leaks into loaded designs. */
 export const BASE_DESIGN: ShipDesign = {
   name: 'Unnamed ship',
+  shipClass: 'bigShip',
   lengthM: 85,
   bow: 'raked',
   stern: 'open',

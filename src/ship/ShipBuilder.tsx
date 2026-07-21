@@ -79,6 +79,7 @@ function randomDesign(): ShipDesign {
   const names = ['Isle of Jura', 'Loch Etive', 'Sound of Sleat', 'Isle of Gigha', 'Lord of Lorn', 'Heather Isle', 'Isle of Rum', 'Sound of Barra']
   return {
     name: pick(names),
+    shipClass: 'bigShip',
     lengthM: Math.round(rnd(50, 120)),
     bow: pick(['raked', 'flared', 'modern'] as BowStyle[]),
     stern,

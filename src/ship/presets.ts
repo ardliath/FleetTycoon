@@ -5,6 +5,7 @@ import type { ShipDesign } from './types'
 export const HERO_SHIPS: ShipDesign[] = [
   {
     name: 'Isle of Arran',
+    shipClass: 'bigShip',
     lengthM: 85,
     bow: 'raked',
     stern: 'open',
@@ -33,6 +34,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Isle of Mull',
+    shipClass: 'bigShip',
     lengthM: 90,
     bow: 'raked',
     stern: 'enclosed',
@@ -53,6 +55,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Lord of the Isles',
+    shipClass: 'bigShip',
     lengthM: 85,
     bow: 'raked',
     stern: 'gantry',
@@ -64,6 +67,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Caledonian Isles',
+    shipClass: 'bigShip',
     lengthM: 94,
     bow: 'flared',
     stern: 'enclosed',
@@ -95,6 +99,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Clansman',
+    shipClass: 'bigShip',
     lengthM: 99,
     bow: 'flared',
     stern: 'enclosed',
@@ -106,6 +111,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Hebrides',
+    shipClass: 'bigShip',
     lengthM: 99,
     bow: 'flared',
     stern: 'enclosed',
@@ -117,6 +123,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Isle of Lewis',
+    shipClass: 'bigShip',
     lengthM: 101,
     bow: 'flared',
     stern: 'enclosed',
@@ -128,6 +135,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Loch Seaforth',
+    shipClass: 'bigShip',
     lengthM: 116,
     bow: 'modern',
     stern: 'enclosed',
@@ -139,6 +147,7 @@ export const HERO_SHIPS: ShipDesign[] = [
   },
   {
     name: 'Lochnevis',
+    shipClass: 'bigShip',
     lengthM: 49,
     bow: 'raked',
     stern: 'gantry',

@@ -7,9 +7,15 @@ export type BridgeStyle = 'classic' | 'modern'
 export type FunnelStyle = 'classic' | 'drum' | 'raked' | 'flick' | 'modern'
 export type MainmastStyle = 'buff' | 'dark-raked'
 export type WindowStyle = 'rect' | 'porthole' | 'mixed'
+/** The four real CalMac-inspired fleet classes (docs/GAME_DESIGN.md's
+ * Fleet & ship building section) — drives licence-tier gating (a player
+ * or crew member licensed for `island` can't take the helm of a
+ * `bigShip`) and route/ship suitability. */
+export type ShipClass = 'island' | 'loch' | 'streaker' | 'bigShip'
 
 export interface ShipDesign {
   name: string
+  shipClass: ShipClass
   /** Overall length in metres (roughly 45–125 for the big ships). */
   lengthM: number
   bow: BowStyle
