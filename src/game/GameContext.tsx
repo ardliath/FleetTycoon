@@ -5,6 +5,7 @@ import { resolveAutomatedSailing } from '../sim/captain'
 import { dailyWage, experienceOf, recordSailing } from '../sim/crew'
 import { mapDockingResultToSailingOutcome } from '../sim/dockingOutcome'
 import { DEFAULT_DAILY_COSTS, netForDay, shipPurchasePrice, type DailyCosts, type RouteEconomics } from '../sim/economy'
+import { recordManualDocking } from '../sim/licence'
 import { isContractLost, recordSailingOutcome, type SailingOutcome } from '../sim/reliability'
 import { createRng } from '../sim/rng'
 import { fareForRoute, fuelCostForRoute, subsidyForRoute } from '../sim/routeEconomics'
@@ -47,6 +48,12 @@ export interface GameContextValue {
   handleTakeControl: (routeId: string) => void
   handleStartNewContract: () => void
   handleProposeRoute: (routeId: string) => void
+  /** Save a whole next contract state — for callers (Company tab) making
+   * ad-hoc edits (buying a ship, hiring crew) that don't warrant their own
+   * named handler here. Goes through the same ref+setState+localStorage
+   * path everything else does, so it stays visible to the always-running
+   * day clock immediately rather than only after a remount. */
+  persist: (next: ContractGameState) => void
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
@@ -84,7 +91,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
    * experience. A route whose reliability falls too far is dropped
    * entirely (re-tendered away) rather than ending the whole company. */
   const resolveSailingDay = useCallback(
-    (routeId: string, outcome: SailingOutcome, opts: { logCrewExperience: boolean }) => {
+    (
+      routeId: string,
+      outcome: SailingOutcome,
+      opts: { logCrewExperience: boolean; recordLicenceProgress?: boolean },
+    ) => {
       const current = contractRef.current
       const route = current.routes.find((r) => r.routeId === routeId)
       const routeDef = findRoute(routeId)
@@ -93,6 +104,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const history = recordSailingOutcome(route.history, outcome)
       const ship = current.fleet.find((s) => s.id === route.assignedShipId)
       const captain = current.crew.find((c) => c.id === route.assignedCaptainId)
+
+      // manual takeovers only — this is the player's own hand on the
+      // controls, not the automated captain's, so it's the one place
+      // sim/licence.ts's progress can come from.
+      let licence = current.licence
+      if (opts.recordLicenceProgress && ship) {
+        const design = shipDesignFor(ship.presetName)
+        if (design) licence = recordManualDocking(licence, design.shipClass, outcome)
+      }
 
       let cash = current.cash
       let fleet = current.fleet
@@ -126,7 +146,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setRouteLostMessage(`${routeDef?.name ?? routeId}: reliability fell too far — re-tendered away.`)
       }
 
-      const next: ContractGameState = { ...current, cash, fleet, crew, routes }
+      const next: ContractGameState = { ...current, cash, fleet, crew, routes, licence }
       setLastOutcomeByRoute((prev) => ({ ...prev, [routeId]: OUTCOME_LABEL[outcome] }))
       setNoticeByRoute((prev) => ({ ...prev, [routeId]: 'resolved' }))
       persist(next)
@@ -247,7 +267,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // readable for a moment before switching back to the overview.
       setTimeout(() => {
         setDockingRouteId(null)
-        resolveSailingDay(routeId, outcome, { logCrewExperience: false })
+        resolveSailingDay(routeId, outcome, { logCrewExperience: false, recordLicenceProgress: true })
       }, 1800)
     }
     EventBus.on('docking-result', onResult)
@@ -268,6 +288,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         handleTakeControl,
         handleStartNewContract,
         handleProposeRoute,
+        persist,
       }}
     >
       {children}

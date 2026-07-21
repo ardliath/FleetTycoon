@@ -1,6 +1,7 @@
 import { HERO_SHIPS } from '../ship/presets'
 import type { CalendarState } from '../sim/calendar'
 import { newCaptain, type Captain } from '../sim/crew'
+import { initialLicence, type LicenceState } from '../sim/licence'
 import type { SailingOutcome } from '../sim/reliability'
 import { newShipCondition, type ShipCondition } from '../sim/shipCondition'
 
@@ -40,6 +41,9 @@ export interface ContractGameState {
   fleet: OwnedShip[]
   crew: Captain[]
   routes: RouteContract[]
+  /** The player's own captain's licence (sim/licence.ts) — gates which
+   * ship classes they may personally take manual control of. */
+  licence: LicenceState
 }
 
 /** Persistence boundary for company/contract state — same swappable-
@@ -117,6 +121,7 @@ export class LocalStorageGameStateStore implements GameStateStore {
       // merge over defaults so a save from an earlier phase (missing
       // cash/fleet/crew, or the flat pre-Phase-4 route shape) loads
       // instead of silently losing progress.
+      const licenceRaw = (parsed as Partial<ContractGameState>).licence
       return {
         masterSeed: parsed.masterSeed,
         calendar: parsed.calendar ?? fresh.calendar,
@@ -124,6 +129,7 @@ export class LocalStorageGameStateStore implements GameStateStore {
         fleet: Array.isArray(parsed.fleet) ? parsed.fleet : fresh.fleet,
         crew: Array.isArray(parsed.crew) ? parsed.crew : fresh.crew,
         routes,
+        licence: licenceRaw && typeof licenceRaw === 'object' ? licenceRaw : fresh.licence,
       }
     } catch {
       return null
@@ -174,6 +180,7 @@ export function newContractState(masterSeed: number): ContractGameState {
     cash: STARTING_CASH,
     fleet: [startingShip],
     crew: [startingCaptain],
+    licence: initialLicence(),
     routes: [
       {
         routeId: DEFAULT_ROUTE_ID,

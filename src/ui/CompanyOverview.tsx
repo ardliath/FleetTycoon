@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useGame } from '../game/GameContext'
 import { findRoute } from '../map/regions'
 import { HERO_SHIPS } from '../ship/presets'
 import { canAfford, shipPurchasePrice } from '../sim/economy'
 import { dailyWage, experienceOf, hireCost, newCaptain, type Captain, type CaptainTier } from '../sim/crew'
+import { CLEAN_DOCKINGS_TO_ADVANCE, type LicenceTier } from '../sim/licence'
 import { applyMaintenance, isInDrydock, newShipCondition } from '../sim/shipCondition'
-import { gameStateStore, newContractState, type ContractGameState, type OwnedShip } from '../storage/gameStateStore'
+import type { OwnedShip } from '../storage/gameStateStore'
 import './companyOverview.css'
 
 /** Fixed maintenance spend per click — a simple lever rather than a free-
@@ -13,8 +14,20 @@ const MAINTENANCE_SPEND = 500
 
 const TIERS: CaptainTier[] = ['green', 'seasoned', 'veteran']
 
-function loadOrCreateContract(): ContractGameState {
-  return gameStateStore.load() ?? newContractState(Date.now())
+const LICENCE_LABEL: Record<LicenceTier, string> = {
+  island: 'Island class',
+  loch: 'Loch class',
+  bigShip: 'Big Ships',
+}
+
+/** The tier after this one, or null already at the top — mirrors
+ * sim/licence.ts's TIER_ORDER (kept local since that list isn't exported;
+ * it's an implementation detail of the pure module, not part of its
+ * public surface). */
+const NEXT_TIER: Record<LicenceTier, LicenceTier | null> = {
+  island: 'loch',
+  loch: 'bigShip',
+  bigShip: null,
 }
 
 function shipDesignFor(presetName: string) {
@@ -22,12 +35,7 @@ function shipDesignFor(presetName: string) {
 }
 
 export function CompanyOverview() {
-  const [contract, setContract] = useState<ContractGameState>(loadOrCreateContract)
-
-  const persist = (next: ContractGameState) => {
-    setContract(next)
-    gameStateStore.save(next)
-  }
+  const { contract, persist } = useGame()
 
   const buyShip = (presetName: string) => {
     const design = shipDesignFor(presetName)
@@ -85,6 +93,22 @@ export function CompanyOverview() {
         <span className="company-overview__label">Cash</span>
         <span className="company-overview__value">£{contract.cash.toLocaleString()}</span>
       </div>
+
+      <section>
+        <h2>Your licence</h2>
+        <p className="company-overview__row-detail">
+          Licensed for <strong>{LICENCE_LABEL[contract.licence.tier]}</strong>.{' '}
+          {NEXT_TIER[contract.licence.tier] ? (
+            <>
+              {contract.licence.cleanDockings} of {CLEAN_DOCKINGS_TO_ADVANCE} clean manual dockings on{' '}
+              {LICENCE_LABEL[contract.licence.tier]} logged toward {LICENCE_LABEL[NEXT_TIER[contract.licence.tier]!]}.
+              Take the helm on the Routes tab to make progress — only on ships within your current licence.
+            </>
+          ) : (
+            "Top tier — you're cleared to take the helm of anything in the fleet."
+          )}
+        </p>
+      </section>
 
       <section>
         <h2>Fleet</h2>

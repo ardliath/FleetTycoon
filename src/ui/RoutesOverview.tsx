@@ -5,6 +5,7 @@ import { routeDistanceKm, routeHazard, shipDesignFor } from '../game/routeHelper
 import { ALL_ROUTES, findRoute } from '../map/regions'
 import { dayProgress, forecastLabel, rollWeather } from '../sim/calendar'
 import { experienceOf } from '../sim/crew'
+import { canOperate } from '../sim/licence'
 import { computeReliability } from '../sim/reliability'
 import { createRng } from '../sim/rng'
 import { fareForRoute, subsidyForRoute } from '../sim/routeEconomics'
@@ -77,6 +78,7 @@ export function RoutesOverview() {
         const captain = contract.crew.find((c) => c.id === route.assignedCaptainId) ?? null
         const shipDesign = ship ? shipDesignFor(ship.presetName) : null
         const shipUnavailable = !ship || isInDrydock(ship.condition, contract.calendar.day)
+        const licensedForShip = shipDesign ? canOperate(contract.licence, shipDesign.shipClass) : false
         const reliability = computeReliability(route.history)
         const weather = rollWeather(createRng(deriveSeed(contract.masterSeed, contract.calendar.day, `weather:${route.routeId}`)))
         const notice = noticeByRoute[route.routeId] ?? 'none'
@@ -118,13 +120,19 @@ export function RoutesOverview() {
               <div className="route-overview__notice">
                 <p>{shipDesign?.name ?? 'The ship'} is approaching the berth.</p>
                 <div className="route-overview__notice-actions">
-                  <button type="button" onClick={() => handleTakeControl(route.routeId)}>
+                  <button type="button" onClick={() => handleTakeControl(route.routeId)} disabled={!licensedForShip}>
                     Take the helm
                   </button>
                   <button type="button" className="route-overview__ghost" disabled>
                     Leave it to the captain…
                   </button>
                 </div>
+                {!licensedForShip && shipDesign && (
+                  <p className="route-overview__label">
+                    Not licensed for {shipDesign.shipClass === 'bigShip' ? 'Big Ships' : shipDesign.shipClass} yet — see
+                    Company for your licence progress.
+                  </p>
+                )}
               </div>
             ) : (
               <button type="button" className="route-overview__cancel" onClick={() => handleCancelToday(route.routeId)}>
