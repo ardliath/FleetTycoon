@@ -3,11 +3,11 @@ import { fareForRoute, fuelCostForRoute, subsidyForRoute } from './routeEconomic
 
 describe('fareForRoute', () => {
   it('rises with distance', () => {
-    expect(fareForRoute(30)).toBeGreaterThan(fareForRoute(5))
+    expect(fareForRoute(30, 0)).toBeGreaterThan(fareForRoute(5, 0))
   })
 
   it('is positive even for a zero-distance edge case', () => {
-    expect(fareForRoute(0)).toBeGreaterThan(0)
+    expect(fareForRoute(0, 0)).toBeGreaterThan(0)
   })
 })
 

@@ -8,7 +8,7 @@ import { experienceOf } from '../sim/crew'
 import { canOperate } from '../sim/licence'
 import { computeReliability } from '../sim/reliability'
 import { createRng } from '../sim/rng'
-import { fareForRoute, subsidyForRoute } from '../sim/routeEconomics'
+import { demandForRouteOnDay, fareForRoute, shipCapacity, subsidyForRoute } from '../sim/routeEconomics'
 import { deriveSeed } from '../sim/seed'
 import { isInDrydock } from '../sim/shipCondition'
 import './routeOverview.css'
@@ -110,6 +110,23 @@ export function RoutesOverview() {
               {shipUnavailable && ship ? ` · in drydock until day ${(ship.condition.drydockUntilDay ?? 0) + 1}` : ''}
             </p>
 
+            {shipDesign &&
+              (() => {
+                const distanceKm = routeDistanceKm(routeDef)
+                const demand = demandForRouteOnDay(distanceKm, contract.calendar.day)
+                const capacity = shipCapacity(shipDesign.lengthM)
+                const passengersCapped = demand.passengers > capacity.passengers
+                const freightCapped = demand.freightUnits > capacity.freightUnits
+                return (
+                  <p className="route-overview__label">
+                    Today's demand: {Math.min(demand.passengers, capacity.passengers)}/{demand.passengers} passengers
+                    {passengersCapped ? ' (ship-limited)' : ''} ·{' '}
+                    {Math.min(demand.freightUnits, capacity.freightUnits)}/{demand.freightUnits} freight
+                    {freightCapped ? ' (ship-limited)' : ''}
+                  </p>
+                )
+              })()}
+
             {lastOutcome && <p className="route-overview__last-outcome">Yesterday: {lastOutcome}</p>}
 
             {shipUnavailable ? (
@@ -156,8 +173,9 @@ export function RoutesOverview() {
                     <span className="route-overview__route-name">{routeDef.name}</span>
                     <span className="route-overview__label">
                       {' '}
-                      · {distanceKm.toFixed(1)}km · hazard {Math.round(hazard * 100)}% · fare £
-                      {fareForRoute(distanceKm).toLocaleString()} · subsidy £{subsidyForRoute(distanceKm).toLocaleString()}/day
+                      · {distanceKm.toFixed(1)}km · hazard {Math.round(hazard * 100)}% · fare today (uncapped) £
+                      {fareForRoute(distanceKm, contract.calendar.day).toLocaleString()} · subsidy £
+                      {subsidyForRoute(distanceKm).toLocaleString()}/day
                     </span>
                   </div>
                   <button type="button" onClick={() => handleProposeRoute(routeDef.id)}>

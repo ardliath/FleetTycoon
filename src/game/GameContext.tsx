@@ -8,7 +8,7 @@ import { DEFAULT_DAILY_COSTS, netForDay, shipPurchasePrice, type DailyCosts, typ
 import { recordManualDocking } from '../sim/licence'
 import { isContractLost, recordSailingOutcome, type SailingOutcome } from '../sim/reliability'
 import { createRng } from '../sim/rng'
-import { fareForRoute, fuelCostForRoute, subsidyForRoute } from '../sim/routeEconomics'
+import { fareForSailing, fuelCostForRoute, subsidyForRoute } from '../sim/routeEconomics'
 import { deriveSeed } from '../sim/seed'
 import { applyWear, drydockRepairCost, isInDrydock, needsDrydock, releaseIfDue, sendToDrydock } from '../sim/shipCondition'
 import { gameStateStore, newContractState, type ContractGameState } from '../storage/gameStateStore'
@@ -132,7 +132,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
 
       const distanceKm = routeDef ? routeDistanceKm(routeDef) : 0
-      const econ: RouteEconomics = { farePerSailing: fareForRoute(distanceKm), subsidyPerDay: subsidyForRoute(distanceKm) }
+      const shipLengthM = ship ? (shipDesignFor(ship.presetName)?.lengthM ?? 90) : 90
+      const econ: RouteEconomics = {
+        farePerSailing: fareForSailing(distanceKm, shipLengthM, current.calendar.day),
+        subsidyPerDay: subsidyForRoute(distanceKm),
+      }
       const costs: DailyCosts = {
         fuelPerSailing: fuelCostForRoute(distanceKm),
         crewWagePerDay: captain ? dailyWage(captain.tier) : 0,
