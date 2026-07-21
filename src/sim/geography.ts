@@ -84,3 +84,20 @@ export function crossingFraction(dayProgress: number, departAt: number, arriveAt
   if (dayProgress < departAt || dayProgress >= arriveAt) return null
   return (dayProgress - departAt) / (arriveAt - departAt)
 }
+
+/**
+ * Where a ship sits for the *whole* day, out and back — real ferries
+ * return to their home port the same day, they don't sail once and vanish.
+ * Resting at the origin before departure, sailing out during
+ * departAt..arriveAt (the same window the notice/auto-resolve logic
+ * already uses), then sailing back for the remainder of the day so she's
+ * home again exactly at the next day boundary — no visual snap back to
+ * origin once she's arrived.
+ */
+export function shipPositionForDay(a: Point, b: Point, dayProgress: number, departAt: number, arriveAt: number): Point {
+  if (dayProgress < departAt) return a
+  if (dayProgress < arriveAt) {
+    return positionAlongRoute(a, b, (dayProgress - departAt) / (arriveAt - departAt))
+  }
+  return positionAlongRoute(b, a, (dayProgress - arriveAt) / (1 - arriveAt))
+}

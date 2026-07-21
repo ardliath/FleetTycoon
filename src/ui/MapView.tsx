@@ -6,13 +6,7 @@ import { bindCameraIntents } from '../input/cameraIntents'
 import { CLYDE_PORTS } from '../map/clyde'
 import { ALL_COASTLINE, ALL_DEPTH_CONTOURS, ALL_HAZARD_ZONES, ALL_PORTS, ALL_ROUTES, findPort } from '../map/regions'
 import { dayProgress } from '../sim/calendar'
-import {
-  crossingFraction,
-  positionAlongRoute,
-  projectPort,
-  unprojectPoint,
-  type Point,
-} from '../sim/geography'
+import { projectPort, shipPositionForDay, unprojectPoint, type Point } from '../sim/geography'
 import { isInDrydock } from '../sim/shipCondition'
 import './mapView.css'
 
@@ -333,9 +327,10 @@ export function MapView() {
           )
         })}
 
-        {/* live ships — each active route's assigned ship, animated across
-            her crossing window (routeTiming.ts), resting at her origin
-            port the rest of the day. */}
+        {/* live ships — each active route's assigned ship, sailing out
+            during her crossing window (routeTiming.ts) then back again for
+            the remainder of the day, resting at her origin port until the
+            next cycle. */}
         {contract.routes.map((route) => {
           const routeDef = ALL_ROUTES.find((r) => r.id === route.routeId)
           const geom = routeDef ? routePoints(routeDef) : null
@@ -343,13 +338,13 @@ export function MapView() {
           if (!routeDef || !geom || !ship) return null
           if (isInDrydock(ship.condition, contract.calendar.day)) return null
 
-          const fraction = crossingFraction(progress, DEPART_AT, ARRIVE_AT)
-          const simPos = fraction === null ? geom.a : positionAlongRoute(geom.a, geom.b, fraction)
+          const simPos = shipPositionForDay(geom.a, geom.b, progress, DEPART_AT, ARRIVE_AT)
+          const outbound = progress < ARRIVE_AT
           const p = toSvg(simPos)
           const aSvg = toSvg(geom.a)
           const bSvg = toSvg(geom.b)
-          const dx = bSvg.x - aSvg.x
-          const dy = bSvg.y - aSvg.y
+          const dx = outbound ? bSvg.x - aSvg.x : aSvg.x - bSvg.x
+          const dy = outbound ? bSvg.y - aSvg.y : aSvg.y - bSvg.y
           const angleDeg = (Math.atan2(dx, -dy) * 180) / Math.PI
           const design = shipDesignFor(ship.presetName)
 

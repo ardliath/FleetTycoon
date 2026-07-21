@@ -5,6 +5,7 @@ import {
   distanceKm,
   positionAlongRoute,
   projectPort,
+  shipPositionForDay,
   unprojectPoint,
 } from './geography'
 
@@ -115,5 +116,39 @@ describe('crossingFraction', () => {
   it('rises linearly across the crossing window', () => {
     const mid = crossingFraction(0.715, 0.55, 0.88)! // (0.88-0.55)/2 + 0.55
     expect(mid).toBeCloseTo(0.5, 1)
+  })
+})
+
+describe('shipPositionForDay', () => {
+  const a = { x: 0, y: 0 }
+  const b = { x: 10, y: 20 }
+  const departAt = 0.55
+  const arriveAt = 0.88
+
+  it('rests at the origin before departure', () => {
+    expect(shipPositionForDay(a, b, 0, departAt, arriveAt)).toEqual(a)
+    expect(shipPositionForDay(a, b, 0.3, departAt, arriveAt)).toEqual(a)
+  })
+
+  it('sails out from a to b across the outbound window', () => {
+    expect(shipPositionForDay(a, b, departAt, departAt, arriveAt)).toEqual(a)
+    expect(shipPositionForDay(a, b, arriveAt, departAt, arriveAt)).toEqual(b)
+  })
+
+  it('sails back from b to a for the rest of the day, arriving home by the day boundary', () => {
+    const justAfterArrival = shipPositionForDay(a, b, arriveAt + 0.001, departAt, arriveAt)
+    expect(justAfterArrival.x).toBeLessThan(b.x)
+    expect(shipPositionForDay(a, b, 1, departAt, arriveAt)).toEqual(a)
+  })
+
+  it('never jumps: position is continuous at both the departure and arrival boundaries', () => {
+    const justBeforeDepart = shipPositionForDay(a, b, departAt - 0.001, departAt, arriveAt)
+    const atDepart = shipPositionForDay(a, b, departAt, departAt, arriveAt)
+    expect(justBeforeDepart).toEqual(atDepart)
+
+    const justBeforeArrive = shipPositionForDay(a, b, arriveAt - 0.0001, departAt, arriveAt)
+    const atArrive = shipPositionForDay(a, b, arriveAt, departAt, arriveAt)
+    expect(justBeforeArrive.x).toBeCloseTo(atArrive.x, 1)
+    expect(justBeforeArrive.y).toBeCloseTo(atArrive.y, 1)
   })
 })
