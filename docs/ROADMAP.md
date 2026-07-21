@@ -285,6 +285,34 @@ Still outstanding, deliberately not attempted:
 
 ---
 
-## Phase 6 (stretch) — Offline progression & platform ports
+## Phase 6 — From systems to a game (cohesion pass)
 
-Explicitly not scoped in detail yet — revisit `docs/GAME_DESIGN.md`'s "Offline/idle (stretch)" notes under Time & simulation when the earlier phases are solid. Candidate contents: idle/offline catch-up simulation (the determinism work from Phase 0 pays off here), the iPad/Capacitor wrap, and — only if it ever becomes real rather than hypothetical — beginning a Unity port using `sim/` as the specification per the Portability strategy above.
+**Fun payoff**: it stops being a set of proof-of-concept tabs and becomes a game you inhabit and keep coming back to.
+
+**Why this phase exists** (added 2026-07-21, after a step-back design session — see `docs/GAME_DESIGN.md`'s new "Game shape & engagement (the Hooked loop)" section): Phases 0–5 built the *systems* (economy, reliability, docking, crew, map) as independent, well-tested pieces. Adam's own read is that we have "proof of concepts and features but not an overall game." This phase is the connective tissue — framed with the Hooked model (Trigger → Action → Variable reward → Investment) and the stewardship-not-exploitation stance in the design doc. It is deliberately sequenced so the highest-leverage "makes it a game" work lands first.
+
+**Model**: mostly Sonnet-default implementation. Two moments are design-shape work worth flagging for a heavier model *when reached*: the neglect/decay balance curve (chunk 1 — it's the economy-shape frontier-model category, like Phase 2/3's risk and economy formulas), and the home-screen / "harbour office" information architecture (chunk 9 — a genuine game-feel design call, not a mechanical one).
+
+**Assets/questions needed**: crew portraits (chunk 4) and any "alive port" art (chunk 5) are content Adam may want to art-direct or source, same category as ship-photo tuning. Named-storm framing and community-voice copy (chunks 6, 8) benefit from Adam's own CalMac knowledge.
+
+**Prioritised build order** (each chunk is a shippable increment; earlier = higher leverage / earlier dependency):
+
+1. **Neglect must bite** — the sharpest gap. Wear and reliability genuinely degrade when unattended (unmaintained ships fail; missed sailings crater reliability; contracts can be lost), so attending the game *matters* instead of just printing money. Pure `sim/` work, unit-testable, with balance-sanity tests (an unattended fleet measurably decays over N seeded days). Must be designed together with a **humane away-handling**: a deliberate pause/fast-forward control (the open "pause & time controls" question) and the idle **digest** below, so the game demands care without demanding constant presence.
+2. **Captains belong to ships, not routes** — a small model change (`gameStateStore`, `CompanyOverview`, resolution) done *before* more UI piles onto the current per-route assignment. Captain + ship becomes a bonded unit.
+3. **The Bridge Log** — one feed aggregating every trigger (forecasts, docking notices, contract renewals, letters, drydock-ready). Turns scattered tabs into a single narrative surface, and is the first concrete step toward the home-screen reframe (chunk 9). Biggest "feels like a game" win for the effort.
+4. **Crew as people** — named captains with portraits and a little personality, not a "seasoned" tier label. Presentation + light data layer on top of the existing `sim/crew.ts`. Attachment/investment hook.
+5. **Docking hero-moment pass** — the differentiator, in feel order: (a) **wakes / prop-wash feedback** so you see thrust firing before the hull responds — the single biggest feel fix; (b) **touch controls** for iPad, driving the existing input intents; (c) **ship-select + per-class handling** (per-ship docking params, rudder/thruster differences by class); (d) a **port that feels alive**; (e) **tutorial mode** on practice boats, where only real sailings count toward the licence.
+6. **Community & reputation (the "tribe" reward)** — per-island standing plus letters/headlines reacting to your reliability. The biggest untapped immersion lever; makes cancellations *cost* something felt, not just a number.
+7. **Tenders & contract structure** — routes are *won* with terms and renewal dates rather than merely "proposed," giving the career spine structure and a steady drip of future triggers.
+8. **Named storms + offline digest** — the set-piece (a named weather event on the forecast days out → pre-position → sail/cancel triage → a reckoning and a story) plus the return digest. Depends on chunks 1 (decay), 3 (feed), 6 (community reaction).
+9. **Home-screen / harbour-office reframe** — the screens transformation from peer-tab tool to a place you act from. Threaded through the phase (the Bridge Log in chunk 3 is its seed) and consolidated here rather than done as one risky big-bang rewrite.
+
+**Runs in parallel, not blocking**: **map build-out** continues region by region via the `regional-chart-import` skill (gated on Adam's per-region data-scope calls); **Island/Loch/Streaker presets** and **truer CalMac-like builder work** remain Adam's own tuning-workflow todos.
+
+**Exit criteria**: leaving the game unattended has real consequences; there's a single surface that tells you what needs you; a new player is onboarded in-fiction; and at least one storm has produced a story worth retelling. Open-ended beyond that, like Phase 5.
+
+---
+
+## Phase 7 (stretch) — Offline depth & platform ports
+
+Explicitly not scoped in detail yet — revisit `docs/GAME_DESIGN.md`'s "Offline/idle" notes under Time & simulation when the earlier phases are solid. Note the offline *digest* and basic catch-up now land earlier, in Phase 6, as the humane counterpart to neglect-decay; what remains here is deeper idle/offline catch-up simulation (the determinism work from Phase 0 pays off here), the iPad/Capacitor wrap, and — only if it ever becomes real rather than hypothetical — beginning a Unity port using `sim/` as the specification per the Portability strategy above.
