@@ -40,6 +40,11 @@ export function CompanyOverview() {
   const buyShip = (presetName: string) => {
     const design = shipDesignFor(presetName)
     if (!design) return
+    // Each named ship is unique — she's one specific vessel with her own
+    // history, not a model you can order more of. Once she's owned, she's
+    // off the market; a second ship means a different preset or a new
+    // design out of the Shipyard, never a second copy of this one.
+    if (contract.fleet.some((s) => s.presetName === presetName)) return
     const price = shipPurchasePrice(design.lengthM)
     if (!canAfford(contract.cash, price)) return
     const ship: OwnedShip = {
@@ -86,6 +91,8 @@ export function CompanyOverview() {
   }
 
   const currentDay = contract.calendar.day
+  const ownedPresetNames = new Set(contract.fleet.map((s) => s.presetName))
+  const shipsForSale = HERO_SHIPS.filter((design) => !ownedPresetNames.has(design.name))
 
   return (
     <div className="company-overview">
@@ -153,24 +160,30 @@ export function CompanyOverview() {
         </ul>
 
         <h3>Buy a ship</h3>
-        <ul className="company-overview__list">
-          {HERO_SHIPS.map((design) => {
-            const price = shipPurchasePrice(design.lengthM)
-            return (
-              <li key={design.name} className="company-overview__row">
-                <div className="company-overview__row-main">
-                  <span className="company-overview__row-name">{design.name}</span>
-                  <span className="company-overview__row-detail">{design.lengthM}m</span>
-                </div>
-                <div className="company-overview__row-actions">
-                  <button type="button" disabled={!canAfford(contract.cash, price)} onClick={() => buyShip(design.name)}>
-                    Buy — £{price.toLocaleString()}
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        {shipsForSale.length === 0 ? (
+          <p className="company-overview__row-detail">
+            Every pre-made ship is already in your fleet — design a new one in the Shipyard.
+          </p>
+        ) : (
+          <ul className="company-overview__list">
+            {shipsForSale.map((design) => {
+              const price = shipPurchasePrice(design.lengthM)
+              return (
+                <li key={design.name} className="company-overview__row">
+                  <div className="company-overview__row-main">
+                    <span className="company-overview__row-name">{design.name}</span>
+                    <span className="company-overview__row-detail">{design.lengthM}m</span>
+                  </div>
+                  <div className="company-overview__row-actions">
+                    <button type="button" disabled={!canAfford(contract.cash, price)} onClick={() => buyShip(design.name)}>
+                      Buy — £{price.toLocaleString()}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </section>
 
       <section>
