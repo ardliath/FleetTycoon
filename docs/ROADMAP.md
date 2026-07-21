@@ -241,6 +241,13 @@ Notes for later phases:
 
 **Exit criteria**: you can propose a new route, see it rated for risk before committing, and run a small network of two or three routes simultaneously.
 
+**Done (2026-07-20).** Exit criteria met with the Clyde pilot (`sim/geography.ts`, `sim/hazard.ts`, 6 ports/3 routes with an honest hazard profile, route proposal UI showing risk/economics before committing, and `GameContext`'s shared day-clock driving several routes simultaneously) — confirmed live: proposing a route, then running three at once. Adam then asked to keep going rather than stop at the pilot ("build out the rest of Scotland"), so the phase closes having also shipped a live chart map (chart chrome, real coastline geometry, real depth contours, pan/zoom camera, live ship icons) and a second full region, Argyll & the Southern Hebrides (11 ports, 6 routes, real coastline via Overpass, real depth contours via EMODnet) generalised behind the same port/route data model the Clyde pilot introduced — none of which was in Phase 4's original named scope but builds directly on it rather than anticipating later phases.
+
+Notes for later phases:
+- The named hazard-zone crossings from `GAME_DESIGN.md` (Sound of Harris/Berneray–Leverburgh) aren't built yet — Argyll's own hazard zone is authored from its real geography, but the Sound of Harris sits in a region not yet sourced.
+- Two coastline-rendering bugs surfaced and were fixed after real geographic data was in place (a peninsula clipped mid-shape by a query bbox; a mainland-closing rectangle sized off wild, unclipped endpoint data causing seam artefacts at two region borders) — worth remembering if a third region is ever added: derive closing rectangles from the region's own query bbox, never from raw chain endpoints.
+- Phase 1's fun/feel exit criterion is still unconfirmed, four phases deep now.
+
 ---
 
 ## Phase 5 — Depth & breadth
@@ -263,6 +270,18 @@ Notes for later phases:
 > Build out Phase 5 of the Fleet Tycoon roadmap: Island and Loch class ship presets (photos already sorted in `Reference Images/`, follow the existing tuning workflow), finalise licence progression per whichever answer to the open question in `docs/GAME_DESIGN.md` Adam has settled on, and add seasonal demand and freight/passenger depth. Treat this phase as several independent chunks — pick them up in whatever order is most interesting, this isn't a strict sequence.
 
 **Exit criteria**: genuinely open-ended — this phase is "keep going," not a fixed target.
+
+**First pass complete (2026-07-21).** Per Adam's "do all and commit in between" answer, this pass built every chunk in one continuous session rather than picking a single starting point:
+- **Double-ended hulls** (`ShipDesign.doubleEnded`): mirrored-bow-curve bezier reversal in both `ShipSideView.tsx` and `ShipTopView.tsx` (hull outline, deck step-down, gantry mast, car-deck lanes, enclosed-stern ramp marking), gated so existing single-ended presets render pixel-identical — the geometry Loch class's double-ended hull form needs, though Loch class's own preset isn't built yet (see below).
+- **`ShipClass`** (`island` / `loch` / `streaker` / `bigShip`) added to `ShipDesign`, backfilled onto all 9 existing hero presets as `bigShip`.
+- **The player's own licence**, skill-demonstrated per the resolved `GAME_DESIGN.md` question: `sim/licence.ts`'s pure `recordManualDocking`/`canOperate`, wired into `GameContext` (gates `handleTakeControl`) and shown live on the Company tab with current tier and clean-docking progress.
+- **Freight/passenger split + seasonal demand**: `sim/routeEconomics.ts`'s two independent demand streams, each with its own seasonal curve, capacity-matched per sailing against the assigned ship — see the resolved `GAME_DESIGN.md` questions above. `demandBalance.test.ts` proves the magnitude is real, not just directionally correct. Routes tab shows today's demand vs. capacity per stream, flagging when the ship is the binding constraint.
+
+Verified live end-to-end: 228 tests passing (`npm test`), clean `tsc -b`/`lint`/`build`, and a real-time playtest on Adam's own save catching the licence gate in action — the Big Ship-class *Isle of Arran* correctly blocked from manual takeover on an Island-class licence, with the "not licensed yet" message rendering exactly as designed. (The save was snapshotted before the playtest and restored after, so none of it touched Adam's actual progress.)
+
+Still outstanding, deliberately not attempted:
+- **Island and Loch class presets** — blocked on Adam himself: he needs to trace the sorted `Reference Images/` photos against the now-double-ended-capable builder and hand back tuned JSON, per the `tuning-workflow` memory and `ship-preset-import` skill. Not something to eyeball from photos in-session. Until this happens, a fresh game has no ship that can ever satisfy the Island-class licence requirement — flagged rather than silently worked around (e.g. the starting licence tier wasn't fudged to paper over it).
+- **Rival-operator abstraction** and the **general polish pass** — untouched this pass; the phase stays open per its own exit criteria.
 
 ---
 
