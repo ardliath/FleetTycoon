@@ -9,6 +9,12 @@
  * Ports/routes chosen: Kennacraig–Islay (both piers), Tayinloan–Gigha,
  * Tarbert–Portavadie, Claonaig–Lochranza and Oban–Colonsay — the real
  * CalMac network here, confirmed with Adam before sourcing any data.
+ * Port Askaig–Colonsay (part of the real Oban–Colonsay–Port Askaig–
+ * Kennacraig triangle) and Oban–Lismore (Achnacroish) were added later,
+ * both real CalMac routes, both within ports/waters already in scope —
+ * no new region data needed. Achnacroish's coordinate is its own English
+ * Wikipedia infobox entry (verified 2026-07-21), same standard as every
+ * other port here.
  *
  * Lochranza is on Arran, whose coastline is already fully drawn by
  * clydeCoastline.ts (the whole island falls inside that region's query
@@ -38,6 +44,7 @@ export const ARGYLL_PORTS: Port[] = [
   { id: 'lochranza', name: 'Lochranza', lat: 55.705, lon: -5.295 },
   { id: 'oban', name: 'Oban', lat: 56.412, lon: -5.472 },
   { id: 'colonsay', name: 'Colonsay', lat: 56.07, lon: -6.19 },
+  { id: 'achnacroish', name: 'Achnacroish', lat: 56.51111, lon: -5.49444 },
 ]
 
 export const ARGYLL_ROUTES: RouteDefinition[] = [
@@ -47,6 +54,8 @@ export const ARGYLL_ROUTES: RouteDefinition[] = [
   { id: 'tarbert-portavadie', name: 'Tarbert – Portavadie', portAId: 'tarbert-argyll', portBId: 'portavadie' },
   { id: 'claonaig-lochranza', name: 'Claonaig – Lochranza', portAId: 'claonaig', portBId: 'lochranza' },
   { id: 'oban-colonsay', name: 'Oban – Colonsay', portAId: 'oban', portBId: 'colonsay' },
+  { id: 'port-askaig-colonsay', name: 'Port Askaig – Colonsay', portAId: 'port-askaig', portBId: 'colonsay' },
+  { id: 'oban-lismore', name: 'Oban – Lismore', portAId: 'oban', portBId: 'achnacroish' },
 ]
 
 export const ARGYLL_HAZARD_ZONES: HazardZone[] = [

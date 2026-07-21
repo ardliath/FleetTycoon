@@ -10,15 +10,15 @@ function portById(id: string): Port {
 }
 
 describe('ARGYLL_PORTS', () => {
-  it('has 11 distinct ports with distinct ids', () => {
-    expect(ARGYLL_PORTS).toHaveLength(11)
-    expect(new Set(ARGYLL_PORTS.map((p) => p.id)).size).toBe(11)
+  it('has 12 distinct ports with distinct ids', () => {
+    expect(ARGYLL_PORTS).toHaveLength(12)
+    expect(new Set(ARGYLL_PORTS.map((p) => p.id)).size).toBe(12)
   })
 })
 
 describe('ARGYLL_ROUTES', () => {
-  it('has 6 routes, each referencing real ports', () => {
-    expect(ARGYLL_ROUTES).toHaveLength(6)
+  it('has 8 routes, each referencing real ports', () => {
+    expect(ARGYLL_ROUTES).toHaveLength(8)
     for (const route of ARGYLL_ROUTES) {
       expect(() => portById(route.portAId)).not.toThrow()
       expect(() => portById(route.portBId)).not.toThrow()
