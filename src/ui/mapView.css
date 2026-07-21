@@ -84,6 +84,7 @@
 }
 
 .map-view__route {
+  fill: none;
   stroke: var(--text);
   stroke-width: 0.3;
   stroke-dasharray: 1.2 0.8;

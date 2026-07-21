@@ -3,6 +3,8 @@ import {
   crossingFraction,
   distanceBetweenPorts,
   distanceKm,
+  pathLengthKm,
+  positionAlongPath,
   positionAlongRoute,
   projectPort,
   shipPositionForDay,
@@ -119,36 +121,89 @@ describe('crossingFraction', () => {
   })
 })
 
+describe('pathLengthKm', () => {
+  it('is the straight distance for a two-point path', () => {
+    expect(pathLengthKm([{ x: 0, y: 0 }, { x: 3, y: 4 }])).toBeCloseTo(5, 9)
+  })
+
+  it('sums each leg for a multi-point path, longer than the straight distance it detours from', () => {
+    const path = [{ x: 0, y: 0 }, { x: 3, y: 4 }, { x: 6, y: 0 }]
+    const straight = distanceKm(path[0], path[2])
+    expect(pathLengthKm(path)).toBeGreaterThan(straight)
+    expect(pathLengthKm(path)).toBeCloseTo(10, 9)
+  })
+
+  it('is 0 for a single-point path', () => {
+    expect(pathLengthKm([{ x: 5, y: 5 }])).toBe(0)
+  })
+})
+
+describe('positionAlongPath', () => {
+  const path = [{ x: 0, y: 0 }, { x: 3, y: 4 }, { x: 6, y: 4 }] // legs of 5km and 3km, 8km total
+
+  it('is the first point at fraction 0 and the last at fraction 1', () => {
+    expect(positionAlongPath(path, 0)).toEqual(path[0])
+    expect(positionAlongPath(path, 1)).toEqual(path[2])
+  })
+
+  it('is a waypoint exactly at the distance fraction it sits at', () => {
+    // the first leg is 5 of the 8km total
+    const atFirstWaypoint = positionAlongPath(path, 5 / 8)
+    expect(atFirstWaypoint.x).toBeCloseTo(3, 6)
+    expect(atFirstWaypoint.y).toBeCloseTo(4, 6)
+  })
+
+  it('interpolates within a leg proportionally to distance, not waypoint count', () => {
+    // halfway by distance (4km) is partway along the first (5km) leg only
+    const halfway = positionAlongPath(path, 0.5)
+    expect(halfway.x).toBeLessThan(3)
+    expect(halfway.y).toBeLessThan(4)
+  })
+})
+
 describe('shipPositionForDay', () => {
-  const a = { x: 0, y: 0 }
-  const b = { x: 10, y: 20 }
+  const straight = [{ x: 0, y: 0 }, { x: 10, y: 20 }]
+  const a = straight[0]
+  const b = straight[1]
   const departAt = 0.55
   const arriveAt = 0.88
 
   it('rests at the origin before departure', () => {
-    expect(shipPositionForDay(a, b, 0, departAt, arriveAt)).toEqual(a)
-    expect(shipPositionForDay(a, b, 0.3, departAt, arriveAt)).toEqual(a)
+    expect(shipPositionForDay(straight, 0, departAt, arriveAt)).toEqual(a)
+    expect(shipPositionForDay(straight, 0.3, departAt, arriveAt)).toEqual(a)
   })
 
   it('sails out from a to b across the outbound window', () => {
-    expect(shipPositionForDay(a, b, departAt, departAt, arriveAt)).toEqual(a)
-    expect(shipPositionForDay(a, b, arriveAt, departAt, arriveAt)).toEqual(b)
+    expect(shipPositionForDay(straight, departAt, departAt, arriveAt)).toEqual(a)
+    expect(shipPositionForDay(straight, arriveAt, departAt, arriveAt)).toEqual(b)
   })
 
   it('sails back from b to a for the rest of the day, arriving home by the day boundary', () => {
-    const justAfterArrival = shipPositionForDay(a, b, arriveAt + 0.001, departAt, arriveAt)
+    const justAfterArrival = shipPositionForDay(straight, arriveAt + 0.001, departAt, arriveAt)
     expect(justAfterArrival.x).toBeLessThan(b.x)
-    expect(shipPositionForDay(a, b, 1, departAt, arriveAt)).toEqual(a)
+    expect(shipPositionForDay(straight, 1, departAt, arriveAt)).toEqual(a)
   })
 
   it('never jumps: position is continuous at both the departure and arrival boundaries', () => {
-    const justBeforeDepart = shipPositionForDay(a, b, departAt - 0.001, departAt, arriveAt)
-    const atDepart = shipPositionForDay(a, b, departAt, departAt, arriveAt)
+    const justBeforeDepart = shipPositionForDay(straight, departAt - 0.001, departAt, arriveAt)
+    const atDepart = shipPositionForDay(straight, departAt, departAt, arriveAt)
     expect(justBeforeDepart).toEqual(atDepart)
 
-    const justBeforeArrive = shipPositionForDay(a, b, arriveAt - 0.0001, departAt, arriveAt)
-    const atArrive = shipPositionForDay(a, b, arriveAt, departAt, arriveAt)
+    const justBeforeArrive = shipPositionForDay(straight, arriveAt - 0.0001, departAt, arriveAt)
+    const atArrive = shipPositionForDay(straight, arriveAt, departAt, arriveAt)
     expect(justBeforeArrive.x).toBeCloseTo(atArrive.x, 1)
     expect(justBeforeArrive.y).toBeCloseTo(atArrive.y, 1)
+  })
+
+  it('follows a multi-waypoint path, not just its endpoints', () => {
+    const bent = [{ x: 0, y: 0 }, { x: 0, y: 10 }, { x: 10, y: 10 }]
+    // partway through the outbound leg, still on the first segment (x should stay 0)
+    const early = shipPositionForDay(bent, departAt + (arriveAt - departAt) * 0.1, departAt, arriveAt)
+    expect(early.x).toBeCloseTo(0, 6)
+    expect(early.y).toBeGreaterThan(0)
+    // fully arrived, at the far end of the bend
+    expect(shipPositionForDay(bent, arriveAt, departAt, arriveAt)).toEqual(bent[2])
+    // home again at the day boundary
+    expect(shipPositionForDay(bent, 1, departAt, arriveAt)).toEqual(bent[0])
   })
 })

@@ -85,19 +85,54 @@ export function crossingFraction(dayProgress: number, departAt: number, arriveAt
   return (dayProgress - departAt) / (arriveAt - departAt)
 }
 
+/** Total length of a multi-point path — the sum of its segment lengths,
+ * not the straight distance between its ends. This is a route's real
+ * sailing distance once it threads around land (see sim/seaRoute.ts). */
+export function pathLengthKm(path: Point[]): number {
+  let total = 0
+  for (let i = 0; i < path.length - 1; i++) total += distanceKm(path[i], path[i + 1])
+  return total
+}
+
+/**
+ * Where a ship sits along a multi-point path, 0..1 by distance travelled
+ * (not by waypoint count) — a long leg between two waypoints covers more
+ * of the fraction than a short one, same as sailing it for real would.
+ */
+export function positionAlongPath(path: Point[], fraction: number): Point {
+  if (path.length === 1) return path[0]
+  const total = pathLengthKm(path)
+  if (total === 0) return path[0]
+  const target = Math.min(1, Math.max(0, fraction)) * total
+
+  let covered = 0
+  for (let i = 0; i < path.length - 1; i++) {
+    const segLen = distanceKm(path[i], path[i + 1])
+    if (i === path.length - 2 || covered + segLen >= target) {
+      const segFraction = segLen === 0 ? 0 : Math.min(1, Math.max(0, (target - covered) / segLen))
+      return positionAlongRoute(path[i], path[i + 1], segFraction)
+    }
+    covered += segLen
+  }
+  return path[path.length - 1]
+}
+
 /**
  * Where a ship sits for the *whole* day, out and back — real ferries
  * return to their home port the same day, they don't sail once and vanish.
- * Resting at the origin before departure, sailing out during
+ * Resting at the origin before departure, sailing out along `path` during
  * departAt..arriveAt (the same window the notice/auto-resolve logic
- * already uses), then sailing back for the remainder of the day so she's
- * home again exactly at the next day boundary — no visual snap back to
- * origin once she's arrived.
+ * already uses), then sailing back along the same path for the remainder
+ * of the day so she's home again exactly at the next day boundary — no
+ * visual snap back to origin once she's arrived. `path` is the route's
+ * real sailing path (sim/seaRoute.ts) — a straight two-point crossing is
+ * just the one-segment case.
  */
-export function shipPositionForDay(a: Point, b: Point, dayProgress: number, departAt: number, arriveAt: number): Point {
-  if (dayProgress < departAt) return a
+export function shipPositionForDay(path: Point[], dayProgress: number, departAt: number, arriveAt: number): Point {
+  if (dayProgress < departAt) return path[0]
   if (dayProgress < arriveAt) {
-    return positionAlongRoute(a, b, (dayProgress - departAt) / (arriveAt - departAt))
+    return positionAlongPath(path, (dayProgress - departAt) / (arriveAt - departAt))
   }
-  return positionAlongRoute(b, a, (dayProgress - arriveAt) / (1 - arriveAt))
+  const returning = [...path].reverse()
+  return positionAlongPath(returning, (dayProgress - arriveAt) / (1 - arriveAt))
 }

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGame } from '../game/GameContext'
-import { routePoints, shipDesignFor } from '../game/routeHelpers'
+import { routeSeaPath, shipDesignFor } from '../game/routeHelpers'
 import { ARRIVE_AT, DEPART_AT } from '../game/routeTiming'
 import { bindCameraIntents } from '../input/cameraIntents'
 import { CLYDE_PORTS } from '../map/clyde'
-import { ALL_COASTLINE, ALL_DEPTH_CONTOURS, ALL_HAZARD_ZONES, ALL_PORTS, ALL_ROUTES, findPort } from '../map/regions'
+import { ALL_COASTLINE, ALL_DEPTH_CONTOURS, ALL_HAZARD_ZONES, ALL_PORTS, ALL_ROUTES } from '../map/regions'
 import { dayProgress } from '../sim/calendar'
 import { projectPort, shipPositionForDay, unprojectPoint, type Point } from '../sim/geography'
 import { isInDrydock } from '../sim/shipCondition'
@@ -292,19 +292,13 @@ export function MapView() {
         })}
 
         {ALL_ROUTES.map((route) => {
-          const portA = findPort(route.portAId)
-          const portB = findPort(route.portBId)
-          if (!portA || !portB) return null
-          const a = toSvg(projectPort(portA))
-          const b = toSvg(projectPort(portB))
+          const path = routeSeaPath(route)
+          if (!path) return null
           const active = activeRouteIds.has(route.id)
           return (
-            <line
+            <polyline
               key={route.id}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
+              points={path.map((pt) => { const s = toSvg(pt); return `${s.x},${s.y}` }).join(' ')}
               className={active ? 'map-view__route map-view__route--active' : 'map-view__route'}
             />
           )
@@ -333,18 +327,28 @@ export function MapView() {
             next cycle. */}
         {contract.routes.map((route) => {
           const routeDef = ALL_ROUTES.find((r) => r.id === route.routeId)
-          const geom = routeDef ? routePoints(routeDef) : null
+          const path = routeDef ? routeSeaPath(routeDef) : null
           const ship = contract.fleet.find((s) => s.id === route.assignedShipId)
-          if (!routeDef || !geom || !ship) return null
+          if (!routeDef || !path || !ship) return null
           if (isInDrydock(ship.condition, contract.calendar.day)) return null
 
-          const simPos = shipPositionForDay(geom.a, geom.b, progress, DEPART_AT, ARRIVE_AT)
-          const outbound = progress < ARRIVE_AT
+          // heading follows the path's current leg, not the route's overall
+          // bearing — a bent path turns as she rounds each waypoint. Sampled
+          // via a tiny lookahead rather than exposing a segment index, since
+          // resting/turnaround moments (where lookahead and position
+          // coincide) fall back to the outbound departure heading.
+          const simPos = shipPositionForDay(path, progress, DEPART_AT, ARRIVE_AT)
+          const lookaheadPos = shipPositionForDay(path, Math.min(1, progress + 0.001), DEPART_AT, ARRIVE_AT)
           const p = toSvg(simPos)
-          const aSvg = toSvg(geom.a)
-          const bSvg = toSvg(geom.b)
-          const dx = outbound ? bSvg.x - aSvg.x : aSvg.x - bSvg.x
-          const dy = outbound ? bSvg.y - aSvg.y : aSvg.y - bSvg.y
+          const pAhead = toSvg(lookaheadPos)
+          let dx = pAhead.x - p.x
+          let dy = pAhead.y - p.y
+          if (dx === 0 && dy === 0) {
+            const departSvg = toSvg(path[0])
+            const nextSvg = toSvg(path[1])
+            dx = nextSvg.x - departSvg.x
+            dy = nextSvg.y - departSvg.y
+          }
           const angleDeg = (Math.atan2(dx, -dy) * 180) / Math.PI
           const design = shipDesignFor(ship.presetName)
 
