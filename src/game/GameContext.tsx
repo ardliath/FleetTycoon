@@ -44,6 +44,11 @@ export interface GameContextValue {
   dockingRouteId: string | null
   lastOutcomeByRoute: Record<string, string>
   routeLostMessage: string | null
+  /** Whether the day clock is deliberately frozen — see the pause effect
+   * below for what "frozen" actually means (no ticks at all, not just a
+   * displayed label). */
+  paused: boolean
+  togglePaused: () => void
   handleCancelToday: (routeId: string) => void
   handleTakeControl: (routeId: string) => void
   handleStartNewContract: () => void
@@ -64,6 +69,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [dockingRouteId, setDockingRouteId] = useState<string | null>(null)
   const [lastOutcomeByRoute, setLastOutcomeByRoute] = useState<Record<string, string>>({})
   const [routeLostMessage, setRouteLostMessage] = useState<string | null>(null)
+  const [paused, setPaused] = useState(false)
+  const togglePaused = useCallback(() => setPaused((prev) => !prev), [])
 
   // mirrors the latest state into the ticking interval without needing to
   // re-register it on every change (interval only depends on pause flags)
@@ -183,10 +190,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [resolveSailingDay],
   )
 
-  // the shared day clock — always running (paused only while docking),
-  // regardless of which tab is on screen.
+  // the shared day clock — always running (paused while docking, or while
+  // the player has deliberately paused), regardless of which tab is on
+  // screen. Pausing is a genuine freeze, not a display state: the effect
+  // itself doesn't run at all, so no ticks, no calendar advance, and (once
+  // wired) no passive decay happens while paused — re-running the effect on
+  // resume also resets `last` to now, so no elapsed-time jump gets applied
+  // for the paused stretch.
   useEffect(() => {
-    if (dockingRouteId) return
+    if (dockingRouteId || paused) return
     let last = performance.now()
     const id = setInterval(() => {
       const now = performance.now()
@@ -226,7 +238,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     }, TICK_INTERVAL_MS)
     return () => clearInterval(id)
-  }, [dockingRouteId, persist, resolveAutomatically, resolveSailingDay])
+  }, [dockingRouteId, paused, persist, resolveAutomatically, resolveSailingDay])
 
   const handleCancelToday = useCallback(
     (routeId: string) => {
@@ -288,6 +300,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         dockingRouteId,
         lastOutcomeByRoute,
         routeLostMessage,
+        paused,
+        togglePaused,
         handleCancelToday,
         handleTakeControl,
         handleStartNewContract,

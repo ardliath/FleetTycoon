@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PhaserGame } from './PhaserGame'
 import { dockingConfig } from './game/dockingConfig'
-import { GameProvider } from './game/GameContext'
+import { GameProvider, useGame } from './game/GameContext'
 import { ShipBuilder } from './ship/ShipBuilder'
 import { FleetGallery } from './ship/FleetGallery'
 import { RoutesOverview } from './ui/RoutesOverview'
@@ -16,6 +16,20 @@ function Docking() {
     <div className="docking-view">
       <PhaserGame config={dockingConfig} />
     </div>
+  )
+}
+
+/** A deliberate, global freeze of the day clock — visible and usable from
+ * any tab, since the clock itself runs above the tab switch. Disabled
+ * while actually hand-docking a ship: that already stops the clock on its
+ * own, so a pause toggle there would just be confusing. */
+function PauseToggle() {
+  const { paused, togglePaused, dockingRouteId } = useGame()
+  const disabled = dockingRouteId !== null
+  return (
+    <button type="button" className="topbar__pause" disabled={disabled} onClick={togglePaused}>
+      {paused ? 'Resume' : 'Pause'}
+    </button>
   )
 }
 
@@ -47,6 +61,7 @@ function App() {
               Docking (practice)
             </button>
           </nav>
+          <PauseToggle />
         </header>
         <div className="app-content">
           {view === 'shipyard' ? (
