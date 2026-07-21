@@ -10,7 +10,16 @@ import { isContractLost, recordSailingOutcome, type SailingOutcome } from '../si
 import { createRng } from '../sim/rng'
 import { fareForSailing, fuelCostForRoute, subsidyForRoute } from '../sim/routeEconomics'
 import { deriveSeed } from '../sim/seed'
-import { applyWear, drydockRepairCost, isInDrydock, needsDrydock, releaseIfDue, sendToDrydock } from '../sim/shipCondition'
+import {
+  applyPassiveDecay,
+  applyRoutineUpkeep,
+  applyWear,
+  drydockRepairCost,
+  isInDrydock,
+  needsDrydock,
+  releaseIfDue,
+  sendToDrydock,
+} from '../sim/shipCondition'
 import { gameStateStore, newContractState, type ContractGameState } from '../storage/gameStateStore'
 import { EventBus } from './EventBus'
 import type { DockingResult } from './scenes/DockingScene'
@@ -211,8 +220,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       if (daysAdvanced > 0) {
         // a new day started — every ship whose drydock stint has passed
-        // comes back, and every route gets a fresh notice cycle.
-        const fleet = current.fleet.map((s) => ({ ...s, condition: releaseIfDue(s.condition, nextCalendar.day) }))
+        // comes back, every route gets a fresh notice cycle, and every
+        // ship still in service picks up one day's passive decay/routine
+        // upkeep per day advanced (not just once per tick — a
+        // backgrounded tab that jumps several days at once shouldn't get
+        // several days' neglect for the price of one). A ship still in
+        // drydock skips this: her condition is irrelevant until release
+        // resets it to full anyway.
+        const fleet = current.fleet.map((s) => {
+          const released = releaseIfDue(s.condition, nextCalendar.day)
+          if (isInDrydock(released, nextCalendar.day)) return { ...s, condition: released }
+          let condition = released
+          for (let i = 0; i < daysAdvanced; i++) {
+            condition = applyRoutineUpkeep(applyPassiveDecay(condition))
+          }
+          return { ...s, condition }
+        })
         persist({ ...current, calendar: nextCalendar, fleet })
         setNoticeByRoute({})
         return

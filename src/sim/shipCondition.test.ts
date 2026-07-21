@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyMaintenance,
+  applyPassiveDecay,
+  applyRoutineUpkeep,
   applyWear,
   drydockRepairCost,
   isInDrydock,
@@ -90,5 +92,37 @@ describe('applyMaintenance', () => {
   it('never exceeds 1 even with a huge spend', () => {
     const maintained = applyMaintenance(newShipCondition(), 1_000_000)
     expect(maintained.score).toBe(1)
+  })
+})
+
+// Phase 6 chunk 1's neglect-decay mechanism — see the doc comments on
+// PASSIVE_DECAY_PER_DAY/ROUTINE_UPKEEP_RESTORE_PER_DAY in shipCondition.ts.
+// Both constants are currently deliberate placeholders (0) pending a real
+// curve-design pass, so these only prove the wiring is correct and clamps
+// hold — NOT a real magnitude effect. That's task #94's job, once the
+// constants are actually set.
+describe('applyPassiveDecay (placeholder constants)', () => {
+  it('is a genuine no-op at the current placeholder rate', () => {
+    const condition = { score: 0.7, drydockUntilDay: null }
+    expect(applyPassiveDecay(condition).score).toBe(0.7)
+  })
+
+  it('never drops below 0 however many times it is applied', () => {
+    let condition = newShipCondition()
+    for (let i = 0; i < 1000; i++) condition = applyPassiveDecay(condition)
+    expect(condition.score).toBeGreaterThanOrEqual(0)
+  })
+})
+
+describe('applyRoutineUpkeep (placeholder constants)', () => {
+  it('is a genuine no-op at the current placeholder rate', () => {
+    const condition = { score: 0.7, drydockUntilDay: null }
+    expect(applyRoutineUpkeep(condition).score).toBe(0.7)
+  })
+
+  it('never exceeds 1 however many times it is applied', () => {
+    let condition = newShipCondition()
+    for (let i = 0; i < 1000; i++) condition = applyRoutineUpkeep(condition)
+    expect(condition.score).toBeLessThanOrEqual(1)
   })
 })

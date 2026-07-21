@@ -39,6 +39,12 @@ export interface DailyCosts {
   fuelPerSailing: number
   /** Sum of assigned crew's daily wage — see crew.ts's dailyWage. */
   crewWagePerDay: number
+  /** Charged automatically every day a route runs, regardless of whether
+   * the player does anything — its real-world counterpart is
+   * shipCondition.ts's `applyRoutineUpkeep` (routine upkeep the crew do
+   * without being asked), not the player's own deliberate
+   * `applyMaintenance` spend. Previously this cash left the company for
+   * an effect that didn't exist; see Phase 6 chunk 1. */
   maintenancePerDay: number
 }
 

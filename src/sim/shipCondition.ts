@@ -73,3 +73,49 @@ const MAINTENANCE_RESTORE_PER_POUND = 0.0004
 export function applyMaintenance(condition: ShipCondition, spend: number): ShipCondition {
   return { ...condition, score: clamp01(condition.score + spend * MAINTENANCE_RESTORE_PER_POUND) }
 }
+
+/**
+ * Passive decay applied once per calendar day to every owned ship —
+ * whether she sailed or not, and independent of how well any given
+ * sailing went. Phase 6 chunk 1's "neglect must bite": before this, a
+ * ship only ever wore from `applyWear`'s outcome-based amounts, which are
+ * small enough (see WEAR_BY_OUTCOME) that a fleet sailing cleanly every
+ * day effectively never degraded — an unattended company just accrued
+ * cash forever. This is the other half of the loop: existence and routine
+ * use cost something on their own, and only deliberate upkeep — the
+ * automatic routine-upkeep offset below, and the player's own manual
+ * `applyMaintenance` spend — keeps a ship ahead of it.
+ *
+ * PLACEHOLDER — set to 0 (a genuine no-op) pending a real curve-design
+ * pass with Adam; see docs/ROADMAP.md's Phase 6 chunk 1, which flags this
+ * specific constant (and ROUTINE_UPKEEP_RESTORE_PER_DAY below, its
+ * counterweight) as worth a heavier model's judgement, the same category
+ * as the Phase 2/3 risk and economy formulas. Don't set a real number
+ * here without that pass — the two constants have to be designed
+ * together, not independently guessed.
+ */
+const PASSIVE_DECAY_PER_DAY = 0
+
+export function applyPassiveDecay(condition: ShipCondition): ShipCondition {
+  return { ...condition, score: clamp01(condition.score - PASSIVE_DECAY_PER_DAY) }
+}
+
+/**
+ * Small automatic restoration representing routine upkeep the crew do
+ * without being asked — the counterpart to the flat daily running-cost
+ * charge already deducted per active route
+ * (`DEFAULT_DAILY_COSTS.maintenancePerDay` in sim/economy.ts), which
+ * previously had no effect on condition at all: cash left the company
+ * every day for "maintenance" that didn't actually maintain anything.
+ * Deliberately meant to land *below* PASSIVE_DECAY_PER_DAY once both are
+ * set for real, so a ship still trends downward without the player's own
+ * deliberate `applyMaintenance` spend — this only closes the dead-
+ * mechanic gap, it isn't meant to cancel out neglect on its own.
+ *
+ * PLACEHOLDER — see PASSIVE_DECAY_PER_DAY above; same pending pass.
+ */
+const ROUTINE_UPKEEP_RESTORE_PER_DAY = 0
+
+export function applyRoutineUpkeep(condition: ShipCondition): ShipCondition {
+  return { ...condition, score: clamp01(condition.score + ROUTINE_UPKEEP_RESTORE_PER_DAY) }
+}
