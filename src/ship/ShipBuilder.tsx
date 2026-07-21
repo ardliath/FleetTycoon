@@ -268,6 +268,14 @@ export function ShipBuilder() {
               ))}
             </select>
           </label>
+          <label className="row">
+            <span>Double-ended hull</span>
+            <input
+              type="checkbox"
+              checked={design.doubleEnded ?? false}
+              onChange={(e) => update({ doubleEnded: e.target.checked })}
+            />
+          </label>
         </section>
 
         <section>

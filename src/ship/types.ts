@@ -14,6 +14,13 @@ export interface ShipDesign {
   lengthM: number
   bow: BowStyle
   stern: SternStyle
+  /** True for double-ended ferries (wheelhouse/propulsion capable from
+   * either end, real Loch class) — both ends take the `bow` hull-stem
+   * shape instead of a stern transom, and both ends get the `stern`
+   * deck/ramp treatment mirrored, since a real double-ender loads and
+   * unloads from either end. Omit/false for a conventional single-ended
+   * hull (the default, and the only shape Big Ships use). */
+  doubleEnded?: boolean
   superstructure: {
     /** White decks above the hull deck (1–3). */
     decks: number

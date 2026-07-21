@@ -64,7 +64,9 @@ function sheer(d: ShipDesign, g: Geo, x: number): number {
   return s
 }
 
-/** Deck height including the bulwark step-down over an open aft working deck. */
+/** Deck height including the bulwark step-down over an open working deck
+ * (aft always; also fore for a double-ended ship, which works the same
+ * way at both ends). */
 function deckAt(d: ShipDesign, g: Geo, x: number): number {
   let h = g.F + sheer(d, g, x)
   if (d.stern !== 'enclosed') {
@@ -72,6 +74,13 @@ function deckAt(d: ShipDesign, g: Geo, x: number): number {
     if (x > stepX) {
       const t = Math.min(1, (x - stepX) / 3)
       h -= 1.25 * t * t * (3 - 2 * t) // smoothstep down to the open deck
+    }
+    if (d.doubleEnded) {
+      const foreStepX = g.ssStart - 1.5
+      if (x < foreStepX) {
+        const t = Math.min(1, (foreStepX - x) / 3)
+        h -= 1.25 * t * t * (3 - 2 * t)
+      }
     }
   }
   return h
@@ -86,15 +95,27 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
 
   const hullPath = (drop: number) => {
     // Outline from bow tip at deck level, down the stem, along the waterline
-    // (dropped by `drop` for the boot stripe), up the transom, back along the
-    // sheered deck line to the bow.
+    // (dropped by `drop` for the boot stripe), up the stern end, back along
+    // the sheered deck line to the bow. For a double-ended ship the stern
+    // end mirrors the bow's own stem curve (the exact reverse of the same
+    // cubic, per bezier-reversal: swap the control points, swap start/end)
+    // instead of a conventional flat transom.
     const deckBow = g.F + sheer(d, g, 0)
+    const deckStern = deckAt(d, g, g.L)
     const stemCtrl =
       d.bow === 'flared'
         ? `C ${X(g.rake * 0.15)} ${Y(deckBow * 0.55)}, ${X(g.rake * 0.55)} ${Y(deckBow * 0.25)},`
         : d.bow === 'modern'
           ? `C ${X(g.rake * 0.3)} ${Y(deckBow * 0.5)}, ${X(g.rake * 0.6)} ${Y(deckBow * 0.18)},`
           : `L` // raked: straight stem
+    const sternRake = d.doubleEnded ? g.rake : g.transomRake
+    const sternCtrl = d.doubleEnded
+      ? d.bow === 'flared'
+        ? `C ${X(g.L - g.rake * 0.55)} ${Y(deckStern * 0.25)}, ${X(g.L - g.rake * 0.15)} ${Y(deckStern * 0.55)},`
+        : d.bow === 'modern'
+          ? `C ${X(g.L - g.rake * 0.6)} ${Y(deckStern * 0.18)}, ${X(g.L - g.rake * 0.3)} ${Y(deckStern * 0.5)},`
+          : `L`
+      : `L` // conventional stern: straight transom
     const deckPts: string[] = []
     for (let x = g.L; x >= 0; x -= g.L / 48) {
       deckPts.push(`L ${X(x)} ${Y(deckAt(d, g, x))}`)
@@ -102,8 +123,8 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
     return [
       `M ${X(0)} ${Y(deckBow)}`,
       `${stemCtrl} ${X(g.rake)} ${Y(-drop)}`,
-      `L ${X(g.L - g.transomRake)} ${Y(-drop)}`,
-      `L ${X(g.L)} ${Y(deckAt(d, g, g.L))}`,
+      `L ${X(g.L - sternRake)} ${Y(-drop)}`,
+      `${sternCtrl} ${X(g.L)} ${Y(deckStern)}`,
       deckPts.join(' '),
       'Z',
     ].join(' ')
@@ -351,7 +372,8 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
     )
   }
 
-  // ---- stern gantry ----
+  // ---- stern gantry (mirrored to the bow too on a double-ended ship,
+  //      which loads/unloads from either end) ----
   if (d.stern === 'gantry') {
     const px = g.L - 2.2
     const base = deckAt(d, g, px)
@@ -361,6 +383,16 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
         <rect x={X(px - 4.6)} y={Y(base + 4.6)} width={5.2} height={0.5} />
       </g>,
     )
+    if (d.doubleEnded) {
+      const fpx = 2.2
+      const fbase = deckAt(d, g, fpx)
+      parts.push(
+        <g key="gantry-fore" fill={C.deckGrey}>
+          <rect x={X(fpx - 0.6)} y={Y(fbase + 4.6)} width={0.6} height={4.6} />
+          <rect x={X(fpx)} y={Y(fbase + 4.6)} width={4.6} height={0.5} />
+        </g>,
+      )
+    }
   }
 
   // ---- lifeboats ----

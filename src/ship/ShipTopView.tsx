@@ -33,12 +33,30 @@ export function ShipTopView({
   const nose = d.bow === 'modern' ? 1.6 : 0.55 // bow tip roundness
 
   // Hull plan outline, inset by `m` metres (m=0 is the hull edge; m>0 gives
-  // the deck surface inside the bulwark rim).
+  // the deck surface inside the bulwark rim). A double-ended hull mirrors
+  // the bow's own rounded-stem-plus-flare curve onto the stern end too,
+  // in place of the conventional squared-off transom.
   const outline = (m: number) => {
     const h = half - m
     const sh = sternHalf - m
     const tip = m * 1.4
     const end = L - m
+    if (d.doubleEnded) {
+      const farTip = L - tip
+      const farFlare = L - bowLen
+      return [
+        `M ${X(tip)} ${cy - nose / 2}`,
+        `Q ${X(tip)} ${cy}, ${X(tip)} ${cy + nose / 2}`,
+        `C ${X(bowLen * 0.45)} ${cy + h * 0.72}, ${X(bowLen * 0.72)} ${cy + h * 0.97}, ${X(bowLen)} ${cy + h}`,
+        `L ${X(farFlare)} ${cy + h}`,
+        `C ${X(L - bowLen * 0.72)} ${cy + h * 0.97}, ${X(L - bowLen * 0.45)} ${cy + h * 0.72}, ${X(farTip)} ${cy + nose / 2}`,
+        `Q ${X(farTip)} ${cy}, ${X(farTip)} ${cy - nose / 2}`,
+        `C ${X(L - bowLen * 0.45)} ${cy - h * 0.72}, ${X(L - bowLen * 0.72)} ${cy - h * 0.97}, ${X(farFlare)} ${cy - h}`,
+        `L ${X(bowLen)} ${cy - h}`,
+        `C ${X(bowLen * 0.72)} ${cy - h * 0.97}, ${X(bowLen * 0.45)} ${cy - h * 0.72}, ${X(tip)} ${cy - nose / 2}`,
+        'Z',
+      ].join(' ')
+    }
     return [
       `M ${X(tip)} ${cy - nose / 2}`,
       `Q ${X(tip)} ${cy}, ${X(tip)} ${cy + nose / 2}`, // rounded stem
@@ -107,6 +125,43 @@ export function ShipTopView({
     parts.push(
       <rect key="gantry" x={X(L - 3.2)} y={cy - half * 0.92} width={1.1} height={half * 1.84} rx={0.3} fill={C.deckGrey} />,
     )
+  }
+
+  // ---- fore deck, mirroring the same stern treatment, for a
+  //      double-ended ship (she loads/unloads from either end) ----
+  if (d.doubleEnded && d.stern !== 'enclosed') {
+    const laneStart = bowLen + 2.2
+    const laneEnd = ssStart - 0.8
+    parts.push(
+      <rect
+        key="cardeck-fore"
+        x={X(laneStart)}
+        y={cy - (half - 1.7)}
+        width={Math.max(4, laneEnd - laneStart)}
+        height={(half - 1.7) * 2}
+        rx={0.8}
+        fill={C.deckGrey}
+      />,
+    )
+    for (const off of [-B * 0.2, 0, B * 0.2]) {
+      parts.push(
+        <line
+          key={`lane-fore-${off.toFixed(1)}`}
+          x1={X(laneStart + 1)}
+          y1={cy + off}
+          x2={X(laneEnd - 1)}
+          y2={cy + off}
+          stroke={C.laneMark}
+          strokeWidth={0.22}
+          strokeDasharray="1.6 1.2"
+        />,
+      )
+    }
+    if (d.stern === 'gantry') {
+      parts.push(
+        <rect key="gantry-fore" x={X(2.1)} y={cy - half * 0.92} width={1.1} height={half * 1.84} rx={0.3} fill={C.deckGrey} />,
+      )
+    }
   }
 
   // ---- superstructure footprint ----
@@ -254,7 +309,8 @@ export function ShipTopView({
     }
   }
 
-  // ---- stern ramp marking for enclosed sterns ----
+  // ---- stern ramp marking for enclosed sterns (mirrored to the bow too
+  //      for a double-ended ship) ----
   if (d.stern === 'enclosed') {
     parts.push(
       <g key="ramp">
@@ -272,6 +328,24 @@ export function ShipTopView({
         ))}
       </g>,
     )
+    if (d.doubleEnded) {
+      parts.push(
+        <g key="ramp-fore">
+          <rect x={X(0.8)} y={cy - half * 0.55} width={3.4} height={half * 1.1} fill={C.deckGreenShade} />
+          {[0, 1, 2].map((i) => (
+            <line
+              key={i}
+              x1={X(1.4 + i * 1.1)}
+              y1={cy - half * 0.5}
+              x2={X(1.4 + i * 1.1)}
+              y2={cy + half * 0.5}
+              stroke={C.deckGrey}
+              strokeWidth={0.22}
+            />
+          ))}
+        </g>,
+      )
+    }
   }
 
   return (
