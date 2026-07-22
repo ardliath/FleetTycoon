@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createRng } from './rng'
-import { effectiveRisk, resolveAutomatedSailing, type CaptainResolutionParams } from './captain'
+import { breakdownChance, effectiveRisk, resolveAutomatedSailing, type CaptainResolutionParams } from './captain'
 
 const base: CaptainResolutionParams = {
   hazard: 0.5,
@@ -78,13 +78,57 @@ describe('resolveAutomatedSailing — determinism', () => {
     expect(a).toBe(b)
   })
 
-  it('draws from the rng at most once (a fresh rng at the same seed matches a second call on the same instance)', () => {
+  it('draws from the rng in a fixed order, so a fresh rng at the same seed replays the same outcome', () => {
+    // resolveAutomatedSailing may draw once (breakdown) or twice (breakdown
+    // then weather roll), but always in the same order for the same inputs,
+    // so a replay from the same seed matches.
     const rng = createRng(7)
     const first = resolveAutomatedSailing(base, rng)
-    // if resolveAutomatedSailing consumed 0 or 1 draws consistently, replaying
-    // from a fresh rng with the same seed and taking the first outcome matches
     const replay = resolveAutomatedSailing(base, createRng(7))
     expect(replay).toBe(first)
+  })
+})
+
+describe('breakdownChance', () => {
+  it('is zero at or above the breakdown threshold — a well-kept ship never just fails', () => {
+    expect(breakdownChance(1)).toBe(0)
+    expect(breakdownChance(0.5)).toBe(0)
+    expect(breakdownChance(0.6)).toBe(0)
+  })
+
+  it('rises as condition falls below the threshold', () => {
+    const worn = breakdownChance(0.3)
+    const worse = breakdownChance(0.15)
+    const derelict = breakdownChance(0)
+    expect(worn).toBeGreaterThan(0)
+    expect(worse).toBeGreaterThan(worn)
+    expect(derelict).toBeGreaterThan(worse)
+  })
+
+  it('is bounded to [0, 1] across the whole condition range', () => {
+    for (const c of [0, 0.1, 0.25, 0.4, 0.5, 0.75, 1]) {
+      const p = breakdownChance(c)
+      expect(p).toBeGreaterThanOrEqual(0)
+      expect(p).toBeLessThanOrEqual(1)
+    }
+  })
+})
+
+describe('resolveAutomatedSailing — condition breakdown', () => {
+  it('a derelict ship on a flat-calm, hazard-free route still sometimes fails to sail (breakdown), unlike a pristine one', () => {
+    // zero hazard/weather isolates the breakdown channel from the weather
+    // risk roll: a pristine ship is always onTime here, a derelict one is
+    // not — she breaks down.
+    const calm = { hazard: 0, weather: 0, captainSkill: 0.5, shipSuitability: 1 }
+    let derelictCancellations = 0
+    let pristineCancellations = 0
+    for (let seed = 0; seed < 400; seed++) {
+      if (resolveAutomatedSailing({ ...calm, shipCondition: 0 }, createRng(seed)) === 'cancelled') derelictCancellations++
+      if (resolveAutomatedSailing({ ...calm, shipCondition: 1 }, createRng(seed)) === 'cancelled') pristineCancellations++
+    }
+    expect(pristineCancellations).toBe(0)
+    // ~40% breakdown chance at condition 0 — a real, frequent failure.
+    expect(derelictCancellations).toBeGreaterThan(120)
   })
 })
 

@@ -97,32 +97,33 @@ describe('applyMaintenance', () => {
 
 // Phase 6 chunk 1's neglect-decay mechanism — see the doc comments on
 // PASSIVE_DECAY_PER_DAY/ROUTINE_UPKEEP_RESTORE_PER_DAY in shipCondition.ts.
-// Both constants are currently deliberate placeholders (0) pending a real
-// curve-design pass, so these only prove the wiring is correct and clamps
-// hold — NOT a real magnitude effect. That's task #94's job, once the
-// constants are actually set.
-describe('applyPassiveDecay (placeholder constants)', () => {
-  it('is a genuine no-op at the current placeholder rate', () => {
+// (The real "does neglect measurably bite over a run" balance test lives
+// in neglectBalance.test.ts; these just pin the per-day units and clamps.)
+describe('applyPassiveDecay', () => {
+  it('lowers condition by the per-day rate', () => {
     const condition = { score: 0.7, drydockUntilDay: null }
-    expect(applyPassiveDecay(condition).score).toBe(0.7)
+    expect(applyPassiveDecay(condition).score).toBeCloseTo(0.68, 10)
   })
 
   it('never drops below 0 however many times it is applied', () => {
     let condition = newShipCondition()
     for (let i = 0; i < 1000; i++) condition = applyPassiveDecay(condition)
-    expect(condition.score).toBeGreaterThanOrEqual(0)
+    expect(condition.score).toBe(0)
   })
 })
 
-describe('applyRoutineUpkeep (placeholder constants)', () => {
-  it('is a genuine no-op at the current placeholder rate', () => {
-    const condition = { score: 0.7, drydockUntilDay: null }
-    expect(applyRoutineUpkeep(condition).score).toBe(0.7)
+describe('applyRoutineUpkeep', () => {
+  it('raises condition, but by less than passive decay lowers it — a ship still drifts down net', () => {
+    const start = { score: 0.7, drydockUntilDay: null }
+    const raised = applyRoutineUpkeep(start).score
+    expect(raised).toBeGreaterThan(0.7)
+    const netDaily = applyRoutineUpkeep(applyPassiveDecay(start)).score
+    expect(netDaily).toBeLessThan(0.7) // decay wins — routine upkeep only softens the slope
   })
 
   it('never exceeds 1 however many times it is applied', () => {
     let condition = newShipCondition()
     for (let i = 0; i < 1000; i++) condition = applyRoutineUpkeep(condition)
-    expect(condition.score).toBeLessThanOrEqual(1)
+    expect(condition.score).toBe(1)
   })
 })
