@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGame } from '../game/GameContext'
 import { routeSeaPath, shipDesignFor } from '../game/routeHelpers'
-import { ARRIVE_AT, DEPART_AT } from '../game/routeTiming'
+import { ARRIVE_AT, departAtForDistance } from '../game/routeTiming'
 import { bindCameraIntents } from '../input/cameraIntents'
 import { CLYDE_PORTS } from '../map/clyde'
 import { ALL_COASTLINE, ALL_DEPTH_CONTOURS, ALL_HAZARD_ZONES, ALL_PORTS, ALL_ROUTES } from '../map/regions'
 import { dayProgress } from '../sim/calendar'
-import { projectPort, shipPositionForDay, unprojectPoint, type Point } from '../sim/geography'
+import { pathLengthKm, projectPort, shipPositionForDay, unprojectPoint, type Point } from '../sim/geography'
 import { isInDrydock } from '../sim/shipCondition'
 import './mapView.css'
 
@@ -332,13 +332,17 @@ export function MapView() {
           if (!routeDef || !path || !ship) return null
           if (isInDrydock(ship.condition, contract.calendar.day)) return null
 
+          // departure is derived from the route's real sailing distance, so
+          // a long passage takes visibly longer to cross than a short hop
+          // (arrival stays pinned at ARRIVE_AT) — see routeTiming.ts.
+          const departAt = departAtForDistance(pathLengthKm(path))
           // heading follows the path's current leg, not the route's overall
           // bearing — a bent path turns as she rounds each waypoint. Sampled
           // via a tiny lookahead rather than exposing a segment index, since
           // resting/turnaround moments (where lookahead and position
           // coincide) fall back to the outbound departure heading.
-          const simPos = shipPositionForDay(path, progress, DEPART_AT, ARRIVE_AT)
-          const lookaheadPos = shipPositionForDay(path, Math.min(1, progress + 0.001), DEPART_AT, ARRIVE_AT)
+          const simPos = shipPositionForDay(path, progress, departAt, ARRIVE_AT)
+          const lookaheadPos = shipPositionForDay(path, Math.min(1, progress + 0.001), departAt, ARRIVE_AT)
           const p = toSvg(simPos)
           const pAhead = toSvg(lookaheadPos)
           let dx = pAhead.x - p.x

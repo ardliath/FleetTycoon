@@ -165,8 +165,12 @@ describe('shipPositionForDay', () => {
   const straight = [{ x: 0, y: 0 }, { x: 10, y: 20 }]
   const a = straight[0]
   const b = straight[1]
-  const departAt = 0.55
+  // departAt/arriveAt as the real model uses them: an equal-length return
+  // leg has to finish before the day rolls over (arriveAt + leg <= 1), so
+  // departure sits close to arrival. leg = 0.08, return ends at 0.96.
+  const departAt = 0.8
   const arriveAt = 0.88
+  const returnEnd = arriveAt + (arriveAt - departAt) // 0.96
 
   it('rests at the origin before departure', () => {
     expect(shipPositionForDay(straight, 0, departAt, arriveAt)).toEqual(a)
@@ -178,10 +182,22 @@ describe('shipPositionForDay', () => {
     expect(shipPositionForDay(straight, arriveAt, departAt, arriveAt)).toEqual(b)
   })
 
-  it('sails back from b to a for the rest of the day, arriving home by the day boundary', () => {
+  it('sails back from b to a over an equal-length return leg, then rests home the rest of the day', () => {
     const justAfterArrival = shipPositionForDay(straight, arriveAt + 0.001, departAt, arriveAt)
     expect(justAfterArrival.x).toBeLessThan(b.x)
+    // home exactly when the equal return leg completes...
+    expect(shipPositionForDay(straight, returnEnd, departAt, arriveAt)).toEqual(a)
+    // ...and still home for the remainder of the day, no snap.
     expect(shipPositionForDay(straight, 1, departAt, arriveAt)).toEqual(a)
+  })
+
+  it('the return leg takes the same time as the outbound — symmetric about arrival', () => {
+    const intoOutbound = shipPositionForDay(straight, arriveAt - 0.02, departAt, arriveAt)
+    const sameIntoReturn = shipPositionForDay(straight, arriveAt + 0.02, departAt, arriveAt)
+    // 0.02 before arrival (outbound) and 0.02 after (return) are the same
+    // distance from the far berth, so the same point in space.
+    expect(sameIntoReturn.x).toBeCloseTo(intoOutbound.x, 6)
+    expect(sameIntoReturn.y).toBeCloseTo(intoOutbound.y, 6)
   })
 
   it('never jumps: position is continuous at both the departure and arrival boundaries', () => {
@@ -203,7 +219,7 @@ describe('shipPositionForDay', () => {
     expect(early.y).toBeGreaterThan(0)
     // fully arrived, at the far end of the bend
     expect(shipPositionForDay(bent, arriveAt, departAt, arriveAt)).toEqual(bent[2])
-    // home again at the day boundary
-    expect(shipPositionForDay(bent, 1, departAt, arriveAt)).toEqual(bent[0])
+    // home again once the return leg completes
+    expect(shipPositionForDay(bent, returnEnd, departAt, arriveAt)).toEqual(bent[0])
   })
 })

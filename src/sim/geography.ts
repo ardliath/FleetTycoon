@@ -120,19 +120,27 @@ export function positionAlongPath(path: Point[], fraction: number): Point {
 /**
  * Where a ship sits for the *whole* day, out and back — real ferries
  * return to their home port the same day, they don't sail once and vanish.
- * Resting at the origin before departure, sailing out along `path` during
- * departAt..arriveAt (the same window the notice/auto-resolve logic
- * already uses), then sailing back along the same path for the remainder
- * of the day so she's home again exactly at the next day boundary — no
- * visual snap back to origin once she's arrived. `path` is the route's
- * real sailing path (sim/seaRoute.ts) — a straight two-point crossing is
- * just the one-segment case.
+ * She rests at the origin before departure, sails out along `path` during
+ * departAt..arriveAt (arriveAt matches the notice/auto-resolve window),
+ * then sails back along the same path over an *equal-length* return leg
+ * (same distance each way, so the same time each way), and rests at the
+ * origin again for the rest of the day. `path` is the route's real sailing
+ * path (sim/seaRoute.ts) — a straight two-point crossing is just the
+ * one-segment case. The caller sizes the outbound leg per route (see
+ * routeTiming.ts's `departAtForDistance`); with arrival pinned near 0.88
+ * and the leg capped so the equal return finishes by the day boundary, she
+ * is always home before the day rolls over — no visual snap back to origin.
  */
 export function shipPositionForDay(path: Point[], dayProgress: number, departAt: number, arriveAt: number): Point {
-  if (dayProgress < departAt) return path[0]
+  const legDuration = arriveAt - departAt
+  if (legDuration <= 0 || dayProgress < departAt) return path[0]
   if (dayProgress < arriveAt) {
-    return positionAlongPath(path, (dayProgress - departAt) / (arriveAt - departAt))
+    return positionAlongPath(path, (dayProgress - departAt) / legDuration)
   }
-  const returning = [...path].reverse()
-  return positionAlongPath(returning, (dayProgress - arriveAt) / (1 - arriveAt))
+  const returnEnd = arriveAt + legDuration
+  if (dayProgress < returnEnd) {
+    const returning = [...path].reverse()
+    return positionAlongPath(returning, (dayProgress - arriveAt) / legDuration)
+  }
+  return path[0] // home again, resting until the next day
 }
