@@ -17,8 +17,9 @@ The map started as a Clyde-only pilot and is growing into one continuous chart o
 6. **Hazard zones**: encode per Adam's briefing from step 1 as `HazardZone` entries — real named dangers where he's named them, not invented severities.
 7. **Generate the region's data files** (`src/map/<region>.ts`, `<region>Coastline.ts`, `<region>DepthContours.ts`) with the same provenance doc-comment discipline as the Clyde files: real source, real processing steps, regeneration instructions, required attribution (OSM/ODbL, EMODnet).
 8. **Merge into the shared map** rather than standing up a new view — this is one continuous map across Scottish waters, not a sheet per region.
-9. **Verify live** in both light and dark mode via the dev server before committing: screenshot, check for label collisions or data running outside the intended view, check the console for genuinely new errors (not stale historical HMR noise), run `npm run build`.
-10. **Commit** with a provenance-focused message (what was sourced, how it was processed, what was verified) — only after Adam has reviewed the region's ports/routes/hazards from step 1.
+9. **Re-bake route paths**: `npm run bake:routes` (see `scripts/bakeRoutePaths.ts`) — the new region's coastline changes what's near any existing route too, not just its own new routes, and `src/map/routePaths.test.ts` will fail CI if this is skipped.
+10. **Verify live** in both light and dark mode via the dev server before committing: screenshot, check for label collisions or data running outside the intended view, check the console for genuinely new errors (not stale historical HMR noise), run `npm run build`.
+11. **Commit** with a provenance-focused message (what was sourced, how it was processed, what was verified) — only after Adam has reviewed the region's ports/routes/hazards from step 1.
 
 ## Notes
 

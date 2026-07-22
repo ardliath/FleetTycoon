@@ -1,5 +1,6 @@
 import type { RouteDefinition } from '../map/clyde'
 import { ALL_COASTLINE, ALL_HAZARD_ZONES, findPort } from '../map/regions'
+import { ROUTE_PATHS } from '../map/routePaths'
 import { HERO_SHIPS } from '../ship/presets'
 import { pathLengthKm, projectPort, type Point } from '../sim/geography'
 import { hazardForRoute } from '../sim/hazard'
@@ -32,23 +33,32 @@ function routeGeometry(route: RouteDefinition) {
   return { portA, portB, a: projectPort(portA), b: projectPort(portB) }
 }
 
-/** Cache of each route's real sailing path, keyed by route id — the
- * pathfind (sim/seaRoute.ts) is a one-time cost against static geography,
- * not something to redo on every render or every economics lookup. */
-const seaPathCache = new Map<string, Point[]>()
+/** Fallback cache for any route not yet in the baked ROUTE_PATHS — e.g. one
+ * just added and not yet baked (`npx tsx scripts/bakeRoutePaths.ts`). The
+ * pathfind is still a real cost, just no longer one the browser normally
+ * pays: routePaths.test.ts guards that every route in ALL_ROUTES has a
+ * baked entry, so hitting this fallback in production would mean that
+ * guard was bypassed, not the intended path. */
+const seaPathFallbackCache = new Map<string, Point[]>()
 
 /** The route's real sailing path — a straight crossing where open water
  * already allows it, or a sequence of waypoints threading around land
  * where it doesn't. This is what every distance/hazard/rendering
  * consumer should use instead of the two ports' straight-line distance,
- * so sailing time, fuel, and the map itself are honest to the geography. */
+ * so sailing time, fuel, and the map itself are honest to the geography.
+ * Reads the baked data (scripts/bakeRoutePaths.ts) rather than computing
+ * the pathfind live — that computation scales with coastline complexity
+ * and was the map's slow-and-slowing-further first-load cost. */
 export function routeSeaPath(route: RouteDefinition): Point[] | null {
+  const baked = ROUTE_PATHS[route.id]
+  if (baked) return baked
+
   const geom = routeGeometry(route)
   if (!geom) return null
-  const cached = seaPathCache.get(route.id)
+  const cached = seaPathFallbackCache.get(route.id)
   if (cached) return cached
   const path = findSeaRoute(geom.a, geom.b, ALL_COASTLINE)
-  seaPathCache.set(route.id, path)
+  seaPathFallbackCache.set(route.id, path)
   return path
 }
 

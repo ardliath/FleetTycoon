@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { distanceKm } from './geography'
-import { convexHull, findSeaRoute, pointInPolygon, segmentsIntersect } from './seaRoute'
+import { convexHull, findSeaRoute, pointInPolygon, segmentsIntersect, smoothPath } from './seaRoute'
 
 describe('segmentsIntersect', () => {
   it('detects a proper crossing', () => {
@@ -153,5 +153,50 @@ describe('findSeaRoute', () => {
       { x: 500, y: 504 },
     ]
     expect(findSeaRoute(start, end, [distantIsland])).toEqual([start, end])
+  })
+})
+
+describe('smoothPath', () => {
+  it('returns a two-point (straight) path untouched — nothing to smooth', () => {
+    const straight = [{ x: 0, y: 0 }, { x: 10, y: 0 }]
+    expect(smoothPath(straight, [])).toEqual(straight)
+  })
+
+  it('rounds a sharp corner that has genuine open water around it', () => {
+    const waypoints = [{ x: 0, y: 0 }, { x: 5, y: 5 }, { x: 10, y: 0 }]
+    const distantLand = [
+      [
+        { x: 100, y: 100 },
+        { x: 104, y: 100 },
+        { x: 104, y: 104 },
+        { x: 100, y: 104 },
+      ],
+    ]
+    const smoothed = smoothPath(waypoints, distantLand)
+
+    // it's a genuine curve now, not the same three points
+    expect(smoothed.length).toBeGreaterThan(waypoints.length)
+    // the endpoints (the actual ports) never move
+    expect(smoothed[0]).toEqual(waypoints[0])
+    expect(smoothed[smoothed.length - 1]).toEqual(waypoints[waypoints.length - 1])
+    // the sharp corner itself is rounded away, not still a literal vertex
+    expect(smoothed).not.toContainEqual(waypoints[1])
+  })
+
+  it('declines to round a corner where the smoothed curve would cut across land, keeping it sharp instead', () => {
+    // land placed exactly where a rounded version of this corner would
+    // bulge through — the headland-tip situation real bent routes hit,
+    // where the waypoint sits right on the coast.
+    const corner = { x: 5, y: 5 }
+    const blockingLand = [
+      [
+        { x: 3, y: 3.5 },
+        { x: 7, y: 3.5 },
+        { x: 7, y: 6 },
+        { x: 3, y: 6 },
+      ],
+    ]
+    const waypoints = [{ x: 0, y: 0 }, corner, { x: 10, y: 0 }]
+    expect(smoothPath(waypoints, blockingLand)).toEqual(waypoints)
   })
 })

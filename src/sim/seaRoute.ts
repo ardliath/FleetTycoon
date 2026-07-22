@@ -210,13 +210,73 @@ function dijkstra(adjacency: Edge[][], startIdx: number, endIdx: number): number
   return indices
 }
 
+/** One pass of Chaikin corner-cutting with the two endpoints pinned — each
+ * interior corner is replaced by points a quarter and three-quarters along
+ * its adjacent edges, rounding it. Iterating converges to a smooth curve.
+ * Endpoints stay put because the ports must not move. */
+function chaikinFixedEnds(points: Point[]): Point[] {
+  if (points.length <= 2) return points
+  const out: Point[] = [points[0]]
+  for (let i = 0; i < points.length - 1; i++) {
+    const p = points[i]
+    const q = points[i + 1]
+    out.push({ x: p.x + (q.x - p.x) * 0.25, y: p.y + (q.y - p.y) * 0.25 })
+    out.push({ x: p.x + (q.x - p.x) * 0.75, y: p.y + (q.y - p.y) * 0.75 })
+  }
+  out.push(points[points.length - 1])
+  return out
+}
+
+/** Whether every *interior* segment of a smoothed path stays clear of the
+ * land. Only interior segments are checked: the two segments touching the
+ * ports are subdivisions of the original port→waypoint edges, which the
+ * pathfinder already verified were clear, and checking them would trip the
+ * port-inside-its-own-ring artifact (see findSeaRoute's doc comment). The
+ * new geometry a corner-cut actually introduces — the bits crossing a
+ * corner — is all interior, so that's exactly what needs validating. */
+function interiorSegmentsClear(points: Point[], land: Point[][]): boolean {
+  for (let i = 1; i < points.length - 2; i++) {
+    for (const ring of land) {
+      if (segmentCrossesRing(points[i], points[i + 1], ring)) return false
+    }
+  }
+  return true
+}
+
+const SMOOTH_ITERATIONS = 3
+
+/**
+ * Round the sharp corners of a waypoint path into a smooth sailing curve,
+ * without ever letting a rounded corner cut across land. Corner-cutting
+ * pulls the curve toward the inside of each turn, so the result is
+ * validated against the coast and the smoothing backed off (fewer passes)
+ * per path until it is clean — falling back to the original sharp polyline
+ * where the coast is too tight to round safely. A route that bends around
+ * a headland whose vertex sits right on the coastline (most of today's
+ * bent routes) simply stays sharp; ones that bend in genuinely open water
+ * round. This is a build-time beautification (see scripts/
+ * bakeRoutePaths.ts); the validation is far too costly to run live, which
+ * is exactly why route paths are baked rather than computed in the browser.
+ * A straight two-point crossing has no corners and is returned untouched.
+ */
+export function smoothPath(waypoints: Point[], land: Point[][]): Point[] {
+  if (waypoints.length <= 2) return waypoints
+  for (let iterations = SMOOTH_ITERATIONS; iterations >= 1; iterations--) {
+    let candidate = waypoints
+    for (let i = 0; i < iterations; i++) candidate = chaikinFixedEnds(candidate)
+    if (interiorSegmentsClear(candidate, land)) return candidate
+  }
+  return waypoints
+}
+
 /**
  * The shortest open-water path from `start` to `end` around the given
  * land polygons — `[start, end]` directly wherever a straight crossing
- * doesn't cut through land, which is most routes. Falls back to the
- * straight line if no path is found at all (shouldn't happen for real
- * coastal geography with a generous enough corridor, but a slightly
- * unrealistic line beats a crash).
+ * doesn't cut through land, which is most routes. Otherwise a smooth curve
+ * threading around the coast (see `smoothPath`). Falls back to the straight
+ * line if no path is found at all (shouldn't happen for real coastal
+ * geography with a generous enough corridor, but a slightly unrealistic
+ * line beats a crash).
  *
  * A port sitting exactly on the coast can end up marginally *inside* its
  * own simplified coastline ring — Douglas-Peucker simplification can
@@ -301,5 +361,5 @@ export function findSeaRoute(start: Point, end: Point, land: Point[][]): Point[]
 
   const indices = dijkstra(adjacency, 0, 1)
   if (!indices) return [start, end]
-  return indices.map((i) => nodes[i])
+  return smoothPath(indices.map((i) => nodes[i]), relevant)
 }
