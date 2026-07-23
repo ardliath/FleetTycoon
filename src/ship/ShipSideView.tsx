@@ -495,6 +495,19 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
 
   // ---- hull details ----
   const hullDetails: JSX.Element[] = []
+  if (d.hull.bowStripe) {
+    // A thin white highlight just inside the hull's own top edge (the
+    // sheer curve deckAt() already traces), following the bow's raised
+    // sheer out to where it flattens back to the flat freeboard line —
+    // a bow-only detail, not a full-length stripe.
+    const bowZone = d.bow === 'modern' ? g.L * 0.24 : g.L * 0.16
+    const stripeDrop = 0.35
+    const pts: string[] = []
+    for (let x = 0; x <= bowZone; x += bowZone / 20) {
+      pts.push(`${X(x)},${Y(deckAt(d, g, x) - stripeDrop)}`)
+    }
+    hullDetails.push(<polyline key="bow-stripe" points={pts.join(' ')} stroke={C.white} strokeWidth={0.3} fill="none" />)
+  }
   if (d.hull.portholes) {
     for (let x = g.rake + 4; x < g.ssEnd - 2; x += 2.3) {
       hullDetails.push(

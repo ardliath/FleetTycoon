@@ -652,6 +652,14 @@ export function ShipBuilder() {
             />
             www.calmac.co.uk
           </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={design.hull.bowStripe ?? false}
+              onChange={(e) => updateHull({ bowStripe: e.target.checked })}
+            />
+            Bow highlight stripe
+          </label>
         </section>
 
         <section>

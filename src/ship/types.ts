@@ -110,6 +110,10 @@ export interface ShipDesign {
     bowThruster: boolean
     /** Red www.calmac.co.uk lettering on the white band. */
     webAddress: boolean
+    /** Thin white highlight line near the bow, right at the top of the
+     * black hull — a common CalMac detail. A bow-only highlight, not a
+     * full-length sheer line. */
+    bowStripe?: boolean
     /** Freeboard: height of the black hull above the waterline, metres.
      * When omitted, derived from length (~3.4 + 1.8% of length). */
     freeboardM?: number
