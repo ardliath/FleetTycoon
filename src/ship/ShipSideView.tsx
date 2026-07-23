@@ -237,6 +237,42 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
     }
   })
 
+  // Mini deck: fills the gap the step opens up under deck 1, rather than
+  // deck 1 floating disconnected above it or deck 0 stretching to reach —
+  // deck 1 never moves (per the doc comment on hullStep), so where it
+  // overhangs the now-lower deck 0, a distinct thin band with its own
+  // deck-line sits between them, closing the gap exactly (its height is
+  // always precisely stepDrop, since deck 0's dropped roof and deck 1's
+  // untouched floor were the same height before the step).
+  if (stepX != null && decks >= 2) {
+    const upper = deckBlocks[1]
+    const miniXs = Math.max(stepX, upper.xs)
+    const miniXe = Math.min(deckBlocks[0].xe, upper.xe)
+    if (miniXe > miniXs) {
+      const miniTop = upper.h0 // deck 1's own untouched floor
+      const miniBottom = miniTop - stepDrop // deck 0's dropped roof, aft of the step
+      parts.push(
+        <rect
+          key="mini-deck"
+          x={X(miniXs)}
+          y={Y(miniTop)}
+          width={miniXe - miniXs}
+          height={miniTop - miniBottom}
+          fill={C.white}
+        />,
+        <line
+          key="mini-deckline"
+          x1={X(miniXs)}
+          y1={Y(miniBottom)}
+          x2={X(miniXe)}
+          y2={Y(miniBottom)}
+          stroke={C.deckShadow}
+          strokeWidth={0.28}
+        />,
+      )
+    }
+  }
+
   // ---- windows on each deck ----
   const winStyle = d.superstructure.windows
   deckBlocks.forEach((b, i) => {
