@@ -42,9 +42,14 @@ export interface ShipDesign {
     upperEndFrac?: number
     /** Height of one white superstructure deck, metres (default ~2.6). */
     deckHeightM?: number
-    /** Step down in the lowest white deck band: aft of `posFrac` the top of
-     * the band drops by `drop` metres. Recreates the Isle of Arran / Hebridean
-     * Isles stepped profile. Omit for a flat-topped deck. */
+    /** Step down in the hull and lowest white deck band together: aft of
+     * `posFrac`, both the black hull's freeboard and the white band drop by
+     * `drop` metres as one unit — the band keeps its full height, it just
+     * sits lower, same as the hull beneath it — recreating the real
+     * stepped-hull profile of the Isle of Arran / Hebridean Isles (a lower
+     * hull aft of the step, not just a shorter top deck). For a hull with an
+     * open stern, the existing bulwark taper further aft composes on top of
+     * this. Omit for a flat, unstepped hull. */
     hullStep?: {
       /** Position of the step along the ship, fraction of length from bow. */
       posFrac: number

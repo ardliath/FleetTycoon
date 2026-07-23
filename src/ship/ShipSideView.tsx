@@ -64,11 +64,30 @@ function sheer(d: ShipDesign, g: Geo, x: number): number {
   return s
 }
 
+/** Ship-local x at which the optional hull step (`superstructure.hullStep`)
+ * begins, or null if there isn't one — shared by the hull silhouette and
+ * the deck-0 band so they step at exactly the same point. Clamped inside
+ * the lowest deck band's own footprint (deckBlocks[0] is exactly
+ * [ssStart, ssEnd] — see the deck-block loop below), since that's the
+ * band the step is defined in terms of. */
+function hullStepXAt(d: ShipDesign, g: Geo): number | null {
+  const step = d.superstructure.hullStep
+  return step && step.drop > 0 ? clamp(step.posFrac * g.L, g.ssStart + 2, g.ssEnd - 2) : null
+}
+
 /** Deck height including the bulwark step-down over an open working deck
  * (aft always; also fore for a double-ended ship, which works the same
- * way at both ends). */
+ * way at both ends), and the optional hull step: real stepped-profile
+ * ferries (Isle of Arran, Hebridean Isles) genuinely have a *lower hull*
+ * over their aft section, not just a shorter top deck — the black hull's
+ * own freeboard drops at the step and stays down (through to the stern
+ * for an enclosed hull; the open-deck taper below composes on top of it
+ * where there's a working deck aft of the superstructure too), matching
+ * the first deck band dropping by the same amount in lockstep. */
 function deckAt(d: ShipDesign, g: Geo, x: number): number {
   let h = g.F + sheer(d, g, x)
+  const stepX = hullStepXAt(d, g)
+  if (stepX != null && x >= stepX) h -= (d.superstructure.hullStep as { drop: number }).drop
   if (d.stern !== 'enclosed') {
     const stepX = g.ssEnd + 1.5
     if (x > stepX) {
@@ -149,14 +168,18 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
   }
 
   // Step down in the lowest white band (Isle of Arran / Hebridean Isles):
-  // aft of stepX the top of deck 0 drops by stepDrop.
-  const step = d.superstructure.hullStep
-  const stepX =
-    step && step.drop > 0 ? clamp(step.posFrac * g.L, deckBlocks[0].xs + 2, deckBlocks[0].xe - 2) : null
-  const stepDrop = stepX != null ? (step as { drop: number }).drop : 0
-  /** Effective top height of a deck band at ship-local x (handles the step). */
+  // aft of stepX BOTH edges of deck 0 drop by stepDrop together — the same
+  // physical bulkhead as the hull's own step in deckAt above, at the same
+  // x — so the band keeps its full height, just sitting lower, rather than
+  // being squashed thinner.
+  const stepX = hullStepXAt(d, g)
+  const stepDrop = stepX != null ? (d.superstructure.hullStep as { drop: number }).drop : 0
+  /** Effective top/bottom height of a deck band at ship-local x (handles
+   * the step; only deck 0 ever has one). */
   const bandTopAt = (i: number, x: number) =>
     i === 0 && stepX != null && x >= stepX ? deckBlocks[i].h1 - stepDrop : deckBlocks[i].h1
+  const bandBottomAt = (i: number, x: number) =>
+    i === 0 && stepX != null && x >= stepX ? deckBlocks[i].h0 - stepDrop : deckBlocks[i].h0
 
   deckBlocks.forEach((b, i) => {
     if (i === 0 && stepX != null) {
@@ -169,7 +192,9 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
             `L ${X(stepX)} ${Y(b.h1)}`,
             `L ${X(stepX)} ${Y(b.h1 - stepDrop)}`,
             `L ${X(b.xe)} ${Y(b.h1 - stepDrop)}`,
-            `L ${X(b.xe)} ${Y(b.h0)}`,
+            `L ${X(b.xe)} ${Y(b.h0 - stepDrop)}`,
+            `L ${X(stepX)} ${Y(b.h0 - stepDrop)}`,
+            `L ${X(stepX)} ${Y(b.h0)}`,
             'Z',
           ].join(' ')}
           fill={C.white}
@@ -180,17 +205,36 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
         <rect key={`deck-${i}`} x={X(b.xs)} y={Y(b.h1)} width={b.xe - b.xs} height={b.h1 - b.h0} fill={C.white} />,
       )
     }
-    parts.push(
-      <line
-        key={`deckline-${i}`}
-        x1={X(b.xs)}
-        y1={Y(b.h0)}
-        x2={X(b.xe)}
-        y2={Y(b.h0)}
-        stroke={C.deckShadow}
-        strokeWidth={0.28}
-      />,
-    )
+    if (i === 0 && stepX != null) {
+      // hull/white boundary line, stepped to match the band's own new
+      // dropped bottom edge, with a short vertical riser at the step.
+      parts.push(
+        <path
+          key={`deckline-${i}`}
+          d={[
+            `M ${X(b.xs)} ${Y(b.h0)}`,
+            `L ${X(stepX)} ${Y(b.h0)}`,
+            `L ${X(stepX)} ${Y(b.h0 - stepDrop)}`,
+            `L ${X(b.xe)} ${Y(b.h0 - stepDrop)}`,
+          ].join(' ')}
+          stroke={C.deckShadow}
+          strokeWidth={0.28}
+          fill="none"
+        />,
+      )
+    } else {
+      parts.push(
+        <line
+          key={`deckline-${i}`}
+          x1={X(b.xs)}
+          y1={Y(b.h0)}
+          x2={X(b.xe)}
+          y2={Y(b.h0)}
+          stroke={C.deckShadow}
+          strokeWidth={0.28}
+        />,
+      )
+    }
   })
 
   // ---- windows on each deck ----
@@ -199,14 +243,14 @@ export function ShipSideView({ design }: { design: ShipDesign }) {
     const style = winStyle === 'mixed' ? (i === 0 ? 'porthole' : 'rect') : winStyle
     if (style === 'porthole') {
       for (let x = b.xs + 1.4; x < b.xe - 1.2; x += 1.9) {
-        const cy = (b.h0 + bandTopAt(i, x)) / 2
+        const cy = (bandBottomAt(i, x) + bandTopAt(i, x)) / 2
         parts.push(
           <circle key={`w${i}-${x.toFixed(1)}`} cx={X(x)} cy={Y(cy)} r={0.36} fill={C.window} />,
         )
       }
     } else {
       for (let x = b.xs + 1.2; x < b.xe - 1.8; x += 1.75) {
-        const cy = (b.h0 + bandTopAt(i, x)) / 2
+        const cy = (bandBottomAt(i, x) + bandTopAt(i, x)) / 2
         parts.push(
           <rect
             key={`w${i}-${x.toFixed(1)}`}
